@@ -17,8 +17,14 @@ return new class extends Migration
             $table->string('email')->unique();
             $table->timestamp('email_verified_at')->nullable();
             $table->string('password');
+            $table->string('employee_id')->unique()->index();
+            $table->string('department')->nullable()->index();
+            $table->string('position')->nullable()->index();
+            $table->enum('role', ['admin', 'employee'])->default('employee')->index();
+            $table->string('profile_photo')->nullable();
             $table->rememberToken();
             $table->timestamps();
+            $table->softDeletes();
         });
 
         Schema::create('password_reset_tokens', function (Blueprint $table) {
@@ -29,7 +35,7 @@ return new class extends Migration
 
         Schema::create('sessions', function (Blueprint $table) {
             $table->string('id')->primary();
-            $table->foreignId('user_id')->nullable()->index();
+            $table->foreignId('user_id')->nullable()->index()->constrained()->onDelete('cascade');
             $table->string('ip_address', 45)->nullable();
             $table->text('user_agent')->nullable();
             $table->longText('payload');
