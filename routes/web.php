@@ -6,8 +6,7 @@ use App\Livewire\Settings\Profile;
 use App\Livewire\Settings\TwoFactor;
 use Illuminate\Support\Facades\Route;
 use Laravel\Fortify\Features;
-use App\Models\User; // Not strictly needed here, but okay if used later
-use App\Livewire\Public\PresenceBoard;
+use App\Livewire\PublicBoard\PresenceBoard;
 
 /*
 |--------------------------------------------------------------------------

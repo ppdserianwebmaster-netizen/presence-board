@@ -1,78 +1,42 @@
 <?php
+// database\factories\UserFactory.php
 
 namespace Database\Factories;
 
-use Illuminate\Database\Eloquent\Factories\Factory;
-use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Str;
 use App\Models\User;
+use Illuminate\Database\Eloquent\Factories\Factory;
+use Illuminate\Support\Str;
 
-/**
- * @extends \Illuminate\Database\Eloquent\Factories\Factory<\App\Models\User>
- */
 class UserFactory extends Factory
 {
-    /**
-     * The current password being used by the factory.
-     */
-    protected static ?string $password;
+    protected $model = User::class;
 
-    /**
-     * Define the model's default state.
-     *
-     * @return array<string, mixed>
-     */
     public function definition(): array
     {
-        $departments=['Sales','Marketing','Finance','HR','Engineering','Operations','IT Support'];
-        $positions=['Manager','Senior Associate','Analyst','Director','Specialist','Trainee'];
-
         return [
-            'name' => fake()->name(),
-            'email' => fake()->unique()->safeEmail(),
+            'name' => $this->faker->name(),
+            'email' => $this->faker->unique()->safeEmail(),
             'email_verified_at' => now(),
-            'password' => static::$password ??= Hash::make('password'),
+            'password' => 'password', // Laravel 12 auto-hashed via model cast
+            'employee_id' => $this->faker->unique()->numerify('EMP####'), // e.g. EMP0001
+            'department' => $this->faker->randomElement(['IT', 'HR', 'Finance', 'Admin', 'Sales']),
+            'position' => $this->faker->jobTitle(),
+            'role' => User::ROLE_EMPLOYEE,
+            'profile_photo_path' => null,
             'remember_token' => Str::random(10),
-            // 'two_factor_secret' => Str::random(10),
-            // 'two_factor_recovery_codes' => Str::random(10),
-            // 'two_factor_confirmed_at' => now(),
-            'employee_id'=>'EMP'.fake()->unique()->randomNumber(4,true),
-            'department'=>fake()->randomElement($departments),
-            'position'=>fake()->randomElement($positions),
-            'role'=>User::ROLE_EMPLOYEE,
-            'profile_photo' => null,
         ];
     }
 
-    public function administrator(): static
-    {
-        return $this->state(fn(array $attrs)=>[
-            'role'=>User::ROLE_ADMIN,
-            'employee_id'=>'ADMIN'.fake()->unique()->randomNumber(4,true),
-            'department'=>'Administration',
-            'position'=>'System Administrator',
-        ]);
-    }
-
     /**
-     * Indicate that the model's email address should be unverified.
+     * State: Admin user
      */
-    public function unverified(): static
+    public function admin(): self
     {
-        return $this->state(fn (array $attributes) => [
-            'email_verified_at' => null,
-        ]);
+        return $this->state(function () {
+            return [
+                'role' => User::ROLE_ADMIN,
+                'employee_id' => 'ADMIN001',
+            ];
+        });
     }
-
-    /**
-     * Indicate that the model does not have two-factor authentication configured.
-     */
-    // public function withoutTwoFactor(): static
-    // {
-    //     return $this->state(fn (array $attributes) => [
-    //         'two_factor_secret' => null,
-    //         'two_factor_recovery_codes' => null,
-    //         'two_factor_confirmed_at' => null,
-    //     ]);
-    // }
 }

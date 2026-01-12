@@ -1,4 +1,5 @@
 <?php
+// database\migrations\2026_01_09_000000_create_users_table.php
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
@@ -12,16 +13,27 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('users', function (Blueprint $table) {
+            // Primary key
             $table->id();
+
+            // Basic info
             $table->string('name');
             $table->string('email')->unique();
             $table->timestamp('email_verified_at')->nullable();
             $table->string('password');
+
+            // Employee info
             $table->string('employee_id')->unique()->index();
             $table->string('department')->nullable()->index();
             $table->string('position')->nullable()->index();
+
+            // Role
             $table->enum('role', ['admin', 'employee'])->default('employee')->index();
-            $table->string('profile_photo')->nullable();
+
+            // Optional profile photo path
+            $table->string('profile_photo_path')->nullable();
+
+            // Auth helpers
             $table->rememberToken();
             $table->timestamps();
             $table->softDeletes();
