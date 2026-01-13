@@ -29,18 +29,12 @@ class Movement extends Model
         self::TYPE_OTHER    => 'Other',
     ];
 
-    // Movement status
-    public const STATUS_PLANNED   = 'planned';
-    public const STATUS_ACTIVE    = 'active';
-    public const STATUS_COMPLETED = 'completed';
-    public const STATUS_CANCELLED = 'cancelled';
-
     protected $fillable = [
         'user_id',
         'started_at',
         'ended_at',
         'movement_type',
-        'status',
+        'status', // still kept for history
         'remark',
     ];
 
@@ -50,7 +44,7 @@ class Movement extends Model
     ];
 
     /**
-     * Relationship: Movement belongs to a user.
+     * Relationship: Movement belongs to a user
      */
     public function user(): BelongsTo
     {
@@ -58,34 +52,17 @@ class Movement extends Model
     }
 
     /**
-     * Scope: Movements that are active now (planned or active and ongoing).
+     * Scope: Movements active now (based on datetime only)
      */
     public function scopeActiveNow($query): void
     {
         $now = now();
-        $query->whereIn('status', [self::STATUS_PLANNED, self::STATUS_ACTIVE])
-              ->where('started_at', '<=', $now)
+        $query->where('started_at', '<=', $now)
               ->where(fn($q) => $q->whereNull('ended_at')->orWhere('ended_at', '>=', $now));
     }
 
     /**
-     * Scope: Filter by movement type.
-     */
-    public function scopeOfType($query, string $type): void
-    {
-        $query->where('movement_type', $type);
-    }
-
-    /**
-     * Scope: Filter by movement status.
-     */
-    public function scopeWhereStatus($query, string $status): void
-    {
-        $query->where('status', $status);
-    }
-
-    /**
-     * Scope: Movements overlapping a given time range.
+     * Scope: Movements overlapping a given time range
      */
     public function scopeOverlaps($query, $start, $end): void
     {
@@ -96,11 +73,10 @@ class Movement extends Model
     }
 
     /**
-     * Scope: Upcoming movements (today onwards, planned or active).
+     * Scope: Upcoming movements (today onwards)
      */
     public function scopeUpcoming($query): void
     {
-        $query->where('ended_at', '>=', now()->startOfDay())
-              ->whereIn('status', [self::STATUS_PLANNED, self::STATUS_ACTIVE]);
+        $query->where('ended_at', '>=', now()->startOfDay());
     }
 }

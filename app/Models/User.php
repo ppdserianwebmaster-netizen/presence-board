@@ -66,18 +66,19 @@ class User extends Authenticatable
     }
 
     /**
-     * Accessor: Get current movement for the user (planned or active).
+     * Accessor: Get current movement for the user (based on datetime only)
      */
     protected function currentMovement(): Attribute
     {
         return Attribute::get(function () {
             $now = now();
             return $this->movements()
-                ->whereIn('status', [Movement::STATUS_PLANNED, Movement::STATUS_ACTIVE])
                 ->where('started_at', '<=', $now)
                 ->where(function ($q) use ($now) {
-                    $q->whereNull('ended_at')->orWhere('ended_at', '>=', $now);
+                    $q->whereNull('ended_at')
+                      ->orWhere('ended_at', '>=', $now);
                 })
+                ->orderBy('started_at', 'desc')
                 ->first();
         });
     }
@@ -111,14 +112,13 @@ class User extends Authenticatable
     }
 
     /**
-     * Scope: Users with active or planned movements.
+     * Scope: Users with active movement (datetime-based)
      */
     public function scopeWithActiveMovement($query): void
     {
         $now = now();
         $query->whereHas('movements', fn($q) =>
-            $q->whereIn('status', [Movement::STATUS_PLANNED, Movement::STATUS_ACTIVE])
-              ->where('started_at', '<=', $now)
+            $q->where('started_at', '<=', $now)
               ->where(fn($q2) => $q2->whereNull('ended_at')->orWhere('ended_at', '>=', $now))
         );
     }
