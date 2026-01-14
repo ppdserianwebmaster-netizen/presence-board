@@ -1,31 +1,70 @@
 <?php
-// app\Models\User.php
+// app/Models/User.php
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
-use Illuminate\Database\Eloquent\SoftDeletes;
-use Illuminate\Database\Eloquent\Relations\HasMany;
-use Illuminate\Database\Eloquent\Casts\Attribute;
-use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Storage;
-use App\Models\Movement;
+use Illuminate\Support\Str;
 
+/**
+ * User Model (Laravel 12)
+ *
+ * Represents an employee or administrator account.
+ *
+ * Responsibilities:
+ * - Authentication & authorization
+ * - Employee profile data
+ * - Movement aggregation & status derivation
+ *
+ * This model is intentionally logic-light and
+ * delegates time-based status logic to Movement scopes
+ * where possible.
+ *
+ * @property int $id
+ * @property string $name
+ * @property string $email
+ * @property string $employee_id
+ * @property string|null $department
+ * @property string|null $position
+ * @property string $role
+ * @property string|null $profile_photo_path
+ * @property \Illuminate\Support\Carbon|null $email_verified_at
+ * @property \Illuminate\Support\Carbon|null $created_at
+ * @property \Illuminate\Support\Carbon|null $updated_at
+ * @property \Illuminate\Support\Carbon|null $deleted_at
+ *
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, Movement> $movements
+ * @property-read Movement|null $current_movement
+ * @property-read bool $is_admin
+ * @property-read bool $is_employee
+ * @property-read string $profile_photo_url
+ */
 class User extends Authenticatable
 {
     use HasFactory, Notifiable, SoftDeletes;
 
-    // Role constants
+    /*
+     |======================================================================
+     | Role Constants
+     |======================================================================
+     */
+
     public const ROLE_ADMIN = 'admin';
     public const ROLE_EMPLOYEE = 'employee';
 
-    /**
-     * The attributes that are mass assignable.
-     *
-     * @var array<int,string>
+    /*
+     |======================================================================
+     | Mass Assignment & Serialization
+     |======================================================================
      */
+
+    /** @var array<int, string> */
     protected $fillable = [
         'name',
         'email',
@@ -37,117 +76,135 @@ class User extends Authenticatable
         'profile_photo_path',
     ];
 
-    /**
-     * The attributes hidden for serialization.
-     *
-     * @var array<int,string>
-     */
+    /** @var array<int, string> */
     protected $hidden = [
         'password',
         'remember_token',
     ];
 
     /**
-     * Attribute casts.
+     * Attribute casting configuration.
      *
-     * @var array<string,string>
+     * - password is automatically hashed
+     * - email_verified_at is treated as Carbon instance
      */
-    protected $casts = [
-        'email_verified_at' => 'datetime',
-        'password' => 'hashed',
-    ];
+    protected function casts(): array
+    {
+        return [
+            'email_verified_at' => 'datetime',
+            'password' => 'hashed',
+        ];
+    }
+
+    /*
+     |======================================================================
+     | Relationships
+     |======================================================================
+     */
 
     /**
-     * Relationship: User has many movements.
+     * A user may have multiple movements over time.
      */
     public function movements(): HasMany
     {
         return $this->hasMany(Movement::class);
     }
 
+    /*
+     |======================================================================
+     | Derived Attributes (Accessors)
+     |======================================================================
+     */
+
     /**
-     * Accessor: Get current movement for the user (based on datetime only)
+     * Current active movement (if any).
+     *
+     * A movement is considered active when:
+     * - started_at <= now
+     * - AND (ended_at IS NULL OR ended_at > now)
+     *
+     * Returns the most recent active movement.
      */
     protected function currentMovement(): Attribute
     {
         return Attribute::get(function () {
             $now = now();
+
             return $this->movements()
-                ->where('started_at', '<=', $now)
-                ->where(function ($q) use ($now) {
-                    $q->whereNull('ended_at')
-                      ->orWhere('ended_at', '>=', $now);
-                })
-                ->orderBy('started_at', 'desc')
+                ->active()
+                ->latest('started_at')
                 ->first();
         });
     }
 
-    /**
-     * Accessor: Check if user is admin.
-     */
+    /** Determine whether the user is an administrator. */
     protected function isAdmin(): Attribute
     {
         return Attribute::get(fn () => $this->role === self::ROLE_ADMIN);
     }
 
-    /**
-     * Accessor: Check if user is employee.
-     */
+    /** Determine whether the user is a standard employee. */
     protected function isEmployee(): Attribute
     {
         return Attribute::get(fn () => $this->role === self::ROLE_EMPLOYEE);
     }
 
     /**
-     * Accessor: Get profile photo URL or default avatar.
+     * Fully-qualified profile photo URL.
+     * Falls back to a default avatar when none is provided.
      */
     protected function profilePhotoUrl(): Attribute
     {
-        return Attribute::get(function () {
-            return $this->profile_photo_path
+        return Attribute::get(fn () =>
+            $this->profile_photo_path
                 ? Storage::url($this->profile_photo_path)
-                : asset('img/default-avatar.png');
-        });
-    }
-
-    /**
-     * Scope: Users with active movement (datetime-based)
-     */
-    public function scopeWithActiveMovement($query): void
-    {
-        $now = now();
-        $query->whereHas('movements', fn($q) =>
-            $q->where('started_at', '<=', $now)
-              ->where(fn($q2) => $q2->whereNull('ended_at')->orWhere('ended_at', '>=', $now))
+                : asset('img/default-avatar.png')
         );
     }
 
-    /**
-     * Scope: Only admin users.
+    /*
+     |======================================================================
+     | Query Scopes
+     |======================================================================
      */
+
+    /**
+     * Scope users who currently have at least one active movement.
+     */
+    public function scopeWithActiveMovement($query): void
+    {
+        $query->whereHas('movements', fn ($q) => $q->active());
+    }
+
+    /** Scope administrator accounts. */
     public function scopeAdmin($query): void
     {
         $query->where('role', self::ROLE_ADMIN);
     }
 
-    /**
-     * Scope: Only employee users.
-     */
+    /** Scope employee accounts. */
     public function scopeEmployee($query): void
     {
         $query->where('role', self::ROLE_EMPLOYEE);
     }
 
+    /*
+     |======================================================================
+     | Helpers
+     |======================================================================
+     */
+
     /**
-     * Get user initials (e.g., "John Doe" → "JD").
+     * Generate uppercase initials from the user's name.
+     *
+     * Example: "John Doe" => "JD"
      */
     public function initials(): string
     {
         return Str::of($this->name)
             ->explode(' ')
             ->take(2)
-            ->map(fn ($word) => Str::substr($word, 0, 1))
+            ->map(fn ($word) => Str::upper(Str::substr($word, 0, 1)))
             ->implode('');
     }
 }
