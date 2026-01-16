@@ -151,7 +151,7 @@
                                          style="background: {{ $cardData['statusColor'] }}"></div>
                                     
                                     {{-- Photo --}}
-                                    <img src="{{ $user->profile_photo_url }}" 
+                                    <img src="{{ $user->profilePhotoUrl }}" 
                                          alt="{{ $user->name }}"
                                          class="relative w-24 h-24 rounded-2xl object-cover shadow-2xl border-2 transition-transform group-hover:scale-105"
                                          style="border-color: {{ $cardData['statusColor'] }}">
@@ -270,34 +270,33 @@
 
 @push('scripts')
 <script>
-    // Re-initialize Lucide icons after Livewire updates
+    /**
+     * Lucide Icon Re-Initialization
+     *
+     * Required because:
+     * - Livewire v3 morphs DOM during wire:poll
+     * - Icons must be recreated AFTER morphing completes
+     */
     document.addEventListener('livewire:init', () => {
-        // Initialize icons immediately
-        if (typeof lucide !== 'undefined') {
-            lucide.createIcons();
-        }
-        
-        // Re-initialize after Livewire morphs the DOM
-        Livewire.hook('morph.updated', ({ el, component }) => {
-            if (typeof lucide !== 'undefined') {
+
+        const initLucide = () => {
+            if (window.lucide) {
                 lucide.createIcons();
             }
-        });
-        
-        // Re-initialize after Livewire finishes processing
-        Livewire.hook('message.processed', (message, component) => {
-            if (typeof lucide !== 'undefined') {
-                lucide.createIcons();
-            }
+        };
+
+        // Initial render
+        initLucide();
+
+        /**
+         * CRITICAL:
+         * Fires AFTER Livewire finishes morphing the DOM
+         * This is the hook that fixes missing icons on auto-pagination
+         */
+        Livewire.hook('morph.updated', () => {
+            initLucide();
         });
     });
-    
-    // Fallback: re-initialize every 1 second to catch any missed icons
-    setInterval(() => {
-        if (typeof lucide !== 'undefined') {
-            lucide.createIcons();
-        }
-    }, 1000);
 </script>
 @endpush
 
@@ -310,7 +309,7 @@
         border-radius: 1.5rem;
         overflow: hidden;
         box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3), 0 2px 4px -1px rgba(0, 0, 0, 0.2);
-        transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.4s, border-color 0.4s;
         animation: fadeInUp 0.6s ease-out;
         border: 1px solid rgba(51, 65, 85, 0.6);
     }
