@@ -1,26 +1,71 @@
 <?php
+// app\Enums\MovementType.php
 
 namespace App\Enums;
 
 /**
  * MovementType Enum
- * * Defines the classification of an employee's absence or location status.
- * Values are stored as strings in the 'movements' table.
+ * Defines the classification of an employee's status.
  */
 enum MovementType: string
 {
-    /** Employee is in a meeting (internal or external) */
     case MEETING = 'meeting';
+    case COURSE  = 'course';
+    case TRAVEL  = 'travel';
+    case LEAVE   = 'leave';
+    case OTHER   = 'other';
 
-    /** Employee is attending a course, seminar, or training session */
-    case COURSE = 'course';
+    /**
+     * Human-readable label.
+     * Usage in Blade: {{ $movement->type->label() }}
+     */
+    public function label(): string
+    {
+        return match($this) {
+            self::MEETING => 'Meeting',
+            self::COURSE  => 'Training / Course',
+            self::TRAVEL  => 'Official Travel',
+            self::LEAVE   => 'On Leave',
+            self::OTHER   => 'Other / Out of Office',
+        };
+    }
 
-    /** Employee is on official travel or out-station duty */
-    case TRAVEL = 'travel';
+    /**
+     * Tailwind CSS color.
+     * Usage in Blade: <span class="text-{{ $movement->type->color() }}-600">
+     */
+    public function color(): string
+    {
+        return match($this) {
+            self::MEETING => 'blue',
+            self::COURSE  => 'indigo',
+            self::TRAVEL  => 'purple',
+            self::LEAVE   => 'red',
+            self::OTHER   => 'slate',
+        };
+    }
 
-    /** Employee is on approved leave (Annual, Medical, etc.) */
-    case LEAVE = 'leave';
+    /**
+     * FontAwesome/Heroicon icon name.
+     */
+    public function icon(): string
+    {
+        return match($this) {
+            self::MEETING => 'users',
+            self::COURSE  => 'academic-cap',
+            self::TRAVEL  => 'briefcase',
+            self::LEAVE   => 'calendar-days',
+            self::OTHER   => 'question-mark-circle',
+        };
+    }
 
-    /** Any other reason for being away from the station */
-    case OTHER = 'other';
+    /**
+     * Static helper for Livewire dropdowns.
+     */
+    public static function options(): array
+    {
+        return collect(self::cases())->mapWithKeys(fn ($case) => [
+            $case->value => $case->label()
+        ])->toArray();
+    }
 }

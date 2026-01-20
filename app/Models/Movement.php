@@ -1,4 +1,5 @@
 <?php
+// app\Models\Movement.php
 
 namespace App\Models;
 
@@ -7,30 +8,21 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Builder;
+use Carbon\CarbonInterface;
 
 /**
- * Movement Model
- * * Manages employee movement records (Meeting, Travel, etc.)
- * Strictly typed for PHP 8.2+ and Laravel 12.
+ * Movement Model - Tracking employee presence.
+ * Refactored for Laravel 12 & PHP 8.4
  */
 class Movement extends Model
 {
     use HasFactory, SoftDeletes;
 
-    /** @var array<int, string> */
     protected $fillable = [
-        'user_id',
-        'started_at',
-        'ended_at',
-        'type',
-        'remark',
+        'user_id', 'started_at', 'ended_at', 'type', 'remark',
     ];
 
-    /**
-     * Automatic Type Casting
-     */
     protected function casts(): array
     {
         return [
@@ -42,47 +34,61 @@ class Movement extends Model
 
     /*
     |--------------------------------------------------------------------------
-    | Relationships
+    | PHP 8.4 Property Hooks
     |--------------------------------------------------------------------------
     */
 
-    public function user(): BelongsTo
-    {
-        return $this->belongsTo(User::class);
+    /**
+     * Replaces isActive() Attribute.
+     * Usage: if ($movement->is_active) ...
+     */
+    public bool $is_active {
+        get => $this->started_at <= now() && 
+               ($this->ended_at === null || $this->ended_at > now());
+    }
+
+    /**
+     * Determines if the movement has no set end time.
+     */
+    public bool $is_indefinite {
+        get => $this->ended_at === null;
+    }
+
+    /**
+     * Returns a human-readable duration (e.g., "2 hours").
+     * Replaces the duration() helper method.
+     */
+    public string $duration_label {
+        get {
+            if ($this->is_indefinite) return 'Indefinite';
+
+            return $this->started_at->diffForHumans($this->ended_at, [
+                'syntax' => CarbonInterface::DIFF_ABSOLUTE,
+                'parts' => 1
+            ]);
+        }
     }
 
     /*
     |--------------------------------------------------------------------------
-    | Query Scopes
+    | Query Scopes (Standard Method Syntax)
     |--------------------------------------------------------------------------
+    | Note: Methods must use { } even in PHP 8.4.
+    | Only Property Hooks use the => syntax.
     */
 
-    /**
-     * Determine if a movement record is currently active based on system time.
-     */
-    public function scopeActive(Builder $query): Builder
+    public function scopeActive(Builder $query): Builder 
     {
-        $now = now();
-
-        return $query->where('started_at', '<=', $now)
-            ->where(function (Builder $q) use ($now) {
-                $q->whereNull('ended_at')
-                  ->orWhere('ended_at', '>', $now);
-            });
-    }
-
-    /**
-     * Alias for scopeActive.
-     */
-    public function scopeActiveNow(Builder $query): Builder
-    {
-        return $this->active();
+        return $query->where('started_at', '<=', now())
+            ->where(fn(Builder $q) => 
+                $q->whereNull('ended_at')->orWhere('ended_at', '>', now())
+            );
     }
 
     public function scopeCompleted(Builder $query): Builder
     {
         return $query->whereNotNull('ended_at')
-                     ->where('ended_at', '<', now());
+                    ->where('ended_at', '<', now());
     }
 
     public function scopeUpcoming(Builder $query): Builder
@@ -92,39 +98,12 @@ class Movement extends Model
 
     /*
     |--------------------------------------------------------------------------
-    | Accessors & Helpers
+    | Relationships
     |--------------------------------------------------------------------------
     */
 
-    /**
-     * Check if movement is currently active (Boolean).
-     * Usage: $movement->is_active
-     */
-    protected function isActive(): Attribute
+    public function user(): BelongsTo
     {
-        return Attribute::get(fn () => 
-            $this->started_at <= now() && 
-            ($this->ended_at === null || $this->ended_at > now())
-        );
-    }
-
-    public function isIndefinite(): bool
-    {
-        return $this->ended_at === null;
-    }
-
-    /**
-     * Returns a human-readable duration (e.g., "2 hours", "1 day").
-     */
-    public function duration(): string
-    {
-        if ($this->isIndefinite()) {
-            return 'Indefinite';
-        }
-
-        return $this->started_at->diffForHumans($this->ended_at, [
-            'syntax' => \Carbon\CarbonInterface::DIFF_ABSOLUTE,
-            'parts' => 1
-        ]);
+        return $this->belongsTo(User::class);
     }
 }

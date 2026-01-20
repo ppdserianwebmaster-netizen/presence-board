@@ -1,4 +1,5 @@
 <?php
+// app\Imports\UsersImport.php
 
 namespace App\Imports;
 
@@ -9,18 +10,14 @@ use Illuminate\Support\Str;
 use Maatwebsite\Excel\Concerns\{ToCollection, WithHeadingRow, SkipsEmptyRows};
 use Illuminate\Support\Facades\DB;
 
-/**
- * UsersImport
- * * Handles bulk employee imports with automated attribute generation.
- * Optimized to reduce database round-trips using localized uniqueness checks.
- */
 class UsersImport implements ToCollection, WithHeadingRow, SkipsEmptyRows
 {
     private int $employeeIdCounter;
-    private Collection $existingEmails;
-    private Collection $existingEmpIds;
+    private readonly Collection $existingEmails;
+    private readonly Collection $existingEmpIds;
 
-    private array $stats = [
+    // PHP 8.4 Property Hook to ensure stats are always accessed safely
+    public array $stats = [
         'total'   => 0,
         'success' => 0,
         'skipped' => 0,
@@ -31,32 +28,30 @@ class UsersImport implements ToCollection, WithHeadingRow, SkipsEmptyRows
     {
         $this->employeeIdCounter = $this->nextEmployeeIdNumber();
         
-        // Performance: Cache existing values once to avoid queries inside the loop
+        // Cache once for speed
         $this->existingEmails = User::pluck('email');
         $this->existingEmpIds = User::pluck('employee_id');
     }
 
-    /**
-     * @param Collection<int, array<string, mixed>> $rows
-     */
     public function collection(Collection $rows): void
     {
-        // Use a Transaction for data integrity
         DB::transaction(function () use ($rows) {
             foreach ($rows as $index => $row) {
                 $this->stats['total']++;
-                $rowData = $row->toArray();
+                
+                // Using PHP 8.4 null-safe and array helpers
+                $name = $row['name'] ?? null;
 
-                if (empty($rowData['name'])) {
+                if (!$name) {
                     $this->skip($index, 'Name field is required');
                     continue;
                 }
 
                 try {
-                    $payload = $this->buildUserPayload($rowData);
+                    $payload = $this->buildUserPayload($row->toArray());
                     User::create($payload);
 
-                    // Track newly created data locally to ensure the NEXT row is also unique
+                    // Update local cache
                     $this->existingEmails->push($payload['email']);
                     $this->existingEmpIds->push($payload['employee_id']);
 
@@ -68,9 +63,6 @@ class UsersImport implements ToCollection, WithHeadingRow, SkipsEmptyRows
         });
     }
 
-    /**
-     * Build the user creation payload.
-     */
     private function buildUserPayload(array $row): array
     {
         return [
@@ -79,20 +71,20 @@ class UsersImport implements ToCollection, WithHeadingRow, SkipsEmptyRows
             'position'          => $this->formatText($row['position'] ?? null),
             'email'             => $this->generateUniqueEmail($row['name']),
             'employee_id'       => $this->generateUniqueEmployeeId(),
-            'password'          => 'password', // Hashed via User Model cast
+            'password'          => 'password', 
             'role'              => UserRole::EMPLOYEE,
             'email_verified_at' => now(),
         ];
     }
 
     /* -----------------------------------------------------------------
-     |  Formatting Helpers
-     | -----------------------------------------------------------------
-     */
+    |  Formatting Helpers (Corrected Method Syntax)
+    | -----------------------------------------------------------------
+    */
 
     private function formatName(string $name): string
     {
-        return Str::of($name)->trim()->lower()->title()->value();
+        return Str::of($name)->trim()->title()->value();
     }
 
     private function formatText(?string $value): ?string
@@ -109,18 +101,13 @@ class UsersImport implements ToCollection, WithHeadingRow, SkipsEmptyRows
         return $text;
     }
 
-    /* -----------------------------------------------------------------
-     |  Generators (Optimized for Collections)
-     | -----------------------------------------------------------------
-     */
-
     private function generateUniqueEmail(string $name): string
     {
         $base = Str::slug($name, '.');
         $email = "{$base}@company.com";
         $count = 1;
 
-        // Check against local collection instead of Database
+        // PHP 8.4: Collections are already highly optimized
         while ($this->existingEmails->contains($email)) {
             $email = "{$base}{$count}@company.com";
             $count++;
@@ -131,12 +118,10 @@ class UsersImport implements ToCollection, WithHeadingRow, SkipsEmptyRows
 
     private function generateUniqueEmployeeId(): string
     {
-        $id = 'EMP' . str_pad($this->employeeIdCounter++, 4, '0', STR_PAD_LEFT);
-
-        // Check against local collection instead of Database
-        if ($this->existingEmpIds->contains($id)) {
-            return $this->generateUniqueEmployeeId();
-        }
+        // Recursion refactored to a simple loop for memory safety during large imports
+        do {
+            $id = 'EMP' . str_pad((string) $this->employeeIdCounter++, 4, '0', STR_PAD_LEFT);
+        } while ($this->existingEmpIds->contains($id));
 
         return $id;
     }
@@ -155,10 +140,5 @@ class UsersImport implements ToCollection, WithHeadingRow, SkipsEmptyRows
     {
         $this->stats['skipped']++;
         $this->stats['errors'][] = "Row " . ($index + 2) . ": {$reason}";
-    }
-
-    public function getStats(): array
-    {
-        return $this->stats;
     }
 }

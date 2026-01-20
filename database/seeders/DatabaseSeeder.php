@@ -1,4 +1,5 @@
 <?php
+// database\seeders\DatabaseSeeder.php
 
 namespace Database\Seeders;
 
@@ -7,13 +8,13 @@ use App\Models\User;
 use App\Models\Movement;
 use App\Imports\UsersImport;
 use App\Enums\MovementType;
-use App\Enums\UserRole;
 use Maatwebsite\Excel\Facades\Excel;
+use Illuminate\Support\Facades\Storage;
 
 class DatabaseSeeder extends Seeder
 {
-    private const USE_EXCEL_IMPORT = true;
-    private const EXCEL_FILE_PATH = 'employees.xlsx';
+    private const bool USE_EXCEL_IMPORT = true;
+    private const string EXCEL_FILE_PATH = 'employees.xlsx';
 
     public function run(): void
     {
@@ -21,33 +22,57 @@ class DatabaseSeeder extends Seeder
 
         // 1. Create Admin
         User::factory()->admin()->create([
-            'name' => 'Admin User',
+            'name'  => 'Admin User',
             'email' => 'admin@example.com',
         ]);
 
         // 2. Create Employees
-        if (self::USE_EXCEL_IMPORT && file_exists(storage_path('app/' . self::EXCEL_FILE_PATH))) {
-            Excel::import(new UsersImport, storage_path('app/' . self::EXCEL_FILE_PATH));
+        // PHP 8.4 null-safe and storage check
+        $fullPath = storage_path('app/' . self::EXCEL_FILE_PATH);
+        
+        if (self::USE_EXCEL_IMPORT && file_exists($fullPath)) {
+            $this->command->comment('📊 Importing from Excel...');
+            Excel::import(new UsersImport, $fullPath);
         } else {
+            $this->command->comment('🎲 Generating random employees...');
             User::factory()->count(50)->create();
         }
 
+        // Fetch employees created above
         $employees = User::employee()->get();
 
-        // 3. Create Movements using Factory States
+        // 3. Create Movements using "Recycle" for Performance
         if ($employees->isNotEmpty()) {
-            // Bulk Random Movements
-            Movement::factory()->count(30)->past()->create(['user_id' => fn() => $employees->random()->id]);
-            Movement::factory()->count(40)->active()->create(['user_id' => fn() => $employees->random()->id]);
-            Movement::factory()->count(10)->future()->create(['user_id' => fn() => $employees->random()->id]);
+            $this->command->comment('🏃 Generating movement history...');
 
-            // Specific Scenarios
-            Movement::factory()->count(5)->create([
-                'user_id' => fn() => $employees->random()->id,
-                'type'    => MovementType::LEAVE,
-                'ended_at' => null,
-                'remark'  => 'Medical Leave - TBD',
-            ]);
+            // Use recycle() to randomly assign movements to existing employees without extra queries
+            Movement::factory()
+                ->count(30)
+                ->recycle($employees)
+                ->past()
+                ->create();
+
+            Movement::factory()
+                ->count(40)
+                ->recycle($employees)
+                ->active()
+                ->create();
+
+            Movement::factory()
+                ->count(10)
+                ->recycle($employees)
+                ->future()
+                ->create();
+
+            // Specific Scenarios using state overrides
+            Movement::factory()
+                ->count(5)
+                ->recycle($employees)
+                ->create([
+                    'type'     => MovementType::LEAVE,
+                    'ended_at' => null,
+                    'remark'   => 'Medical Leave - TBD',
+                ]);
         }
 
         $this->displaySummary();
@@ -61,7 +86,7 @@ class DatabaseSeeder extends Seeder
             [
                 ['Total Users', User::count()],
                 ['Total Movements', Movement::count()],
-                ['Currently Away', Movement::active()->count()],
+                ['Active (Currently Away)', Movement::active()->count()],
             ]
         );
         $this->command->info('✅ Seeding Completed!');
