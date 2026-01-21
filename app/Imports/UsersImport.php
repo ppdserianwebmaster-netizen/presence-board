@@ -1,5 +1,4 @@
 <?php
-// app\Imports\UsersImport.php
 
 namespace App\Imports;
 
@@ -16,8 +15,11 @@ class UsersImport implements ToCollection, WithHeadingRow, SkipsEmptyRows
     private readonly Collection $existingEmails;
     private readonly Collection $existingEmpIds;
 
-    // PHP 8.4 Property Hook to ensure stats are always accessed safely
-    public array $stats = [
+    /**
+     * PHP 8.4 Asymmetric Visibility
+     * The Livewire component can read stats, but only this class can modify them.
+     */
+    public private(set) array $stats = [
         'total'   => 0,
         'success' => 0,
         'skipped' => 0,
@@ -28,7 +30,7 @@ class UsersImport implements ToCollection, WithHeadingRow, SkipsEmptyRows
     {
         $this->employeeIdCounter = $this->nextEmployeeIdNumber();
         
-        // Cache once for speed
+        // Cache once for speed using select for memory efficiency
         $this->existingEmails = User::pluck('email');
         $this->existingEmpIds = User::pluck('employee_id');
     }
@@ -51,7 +53,7 @@ class UsersImport implements ToCollection, WithHeadingRow, SkipsEmptyRows
                     $payload = $this->buildUserPayload($row->toArray());
                     User::create($payload);
 
-                    // Update local cache
+                    // Update local cache to prevent duplicates within the same Excel file
                     $this->existingEmails->push($payload['email']);
                     $this->existingEmpIds->push($payload['employee_id']);
 
@@ -71,14 +73,14 @@ class UsersImport implements ToCollection, WithHeadingRow, SkipsEmptyRows
             'position'          => $this->formatText($row['position'] ?? null),
             'email'             => $this->generateUniqueEmail($row['name']),
             'employee_id'       => $this->generateUniqueEmployeeId(),
-            'password'          => 'password', 
+            'password'          => 'password', // Handled by Model cast
             'role'              => UserRole::EMPLOYEE,
             'email_verified_at' => now(),
         ];
     }
 
     /* -----------------------------------------------------------------
-    |  Formatting Helpers (Corrected Method Syntax)
+    |  Formatting Helpers
     | -----------------------------------------------------------------
     */
 
@@ -94,6 +96,7 @@ class UsersImport implements ToCollection, WithHeadingRow, SkipsEmptyRows
         $text = trim($value);
         $acronyms = ['IT', 'HR', 'PPP', 'PPD', 'KOD', 'SISC', 'SIP'];
 
+        // Case-insensitive replacement for specific organizational acronyms
         foreach ($acronyms as $acronym) {
             $text = preg_replace("/\b{$acronym}\b/i", $acronym, $text);
         }
@@ -107,7 +110,6 @@ class UsersImport implements ToCollection, WithHeadingRow, SkipsEmptyRows
         $email = "{$base}@company.com";
         $count = 1;
 
-        // PHP 8.4: Collections are already highly optimized
         while ($this->existingEmails->contains($email)) {
             $email = "{$base}{$count}@company.com";
             $count++;
@@ -118,7 +120,6 @@ class UsersImport implements ToCollection, WithHeadingRow, SkipsEmptyRows
 
     private function generateUniqueEmployeeId(): string
     {
-        // Recursion refactored to a simple loop for memory safety during large imports
         do {
             $id = 'EMP' . str_pad((string) $this->employeeIdCounter++, 4, '0', STR_PAD_LEFT);
         } while ($this->existingEmpIds->contains($id));
@@ -138,6 +139,7 @@ class UsersImport implements ToCollection, WithHeadingRow, SkipsEmptyRows
 
     private function skip(int $index, string $reason): void
     {
+        // Internal mutation of public private(set) property
         $this->stats['skipped']++;
         $this->stats['errors'][] = "Row " . ($index + 2) . ": {$reason}";
     }

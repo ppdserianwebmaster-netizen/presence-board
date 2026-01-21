@@ -1,5 +1,4 @@
 <?php
-// database\seeders\DatabaseSeeder.php
 
 namespace Database\Seeders;
 
@@ -9,10 +8,12 @@ use App\Models\Movement;
 use App\Imports\UsersImport;
 use App\Enums\MovementType;
 use Maatwebsite\Excel\Facades\Excel;
-use Illuminate\Support\Facades\Storage;
 
 class DatabaseSeeder extends Seeder
 {
+    /**
+     * PHP 8.4: Constants can now have type hints!
+     */
     private const bool USE_EXCEL_IMPORT = true;
     private const string EXCEL_FILE_PATH = 'employees.xlsx';
 
@@ -20,58 +21,54 @@ class DatabaseSeeder extends Seeder
     {
         $this->command->info('🌱 Starting Database Seeding...');
 
-        // 1. Create Admin
+        // 1. Create Admin (Primary Account)
         User::factory()->admin()->create([
             'name'  => 'Admin User',
             'email' => 'admin@example.com',
+            'password' => 'admin123', // Model cast handles the hashing
         ]);
 
-        // 2. Create Employees
-        // PHP 8.4 null-safe and storage check
+        // 2. Hydrate Employee Base
         $fullPath = storage_path('app/' . self::EXCEL_FILE_PATH);
         
         if (self::USE_EXCEL_IMPORT && file_exists($fullPath)) {
             $this->command->comment('📊 Importing from Excel...');
             Excel::import(new UsersImport, $fullPath);
         } else {
-            $this->command->comment('🎲 Generating random employees...');
+            $this->command->comment('🎲 Generating random employees (Faker)...');
             User::factory()->count(50)->create();
         }
 
-        // Fetch employees created above
+        // Fetch only employees for movement assignment
         $employees = User::employee()->get();
 
-        // 3. Create Movements using "Recycle" for Performance
+        // 3. Generate Movement History
         if ($employees->isNotEmpty()) {
             $this->command->comment('🏃 Generating movement history...');
 
-            // Use recycle() to randomly assign movements to existing employees without extra queries
+            // Past History (Completed records)
             Movement::factory()
-                ->count(30)
+                ->count(100)
                 ->recycle($employees)
                 ->past()
                 ->create();
 
+            // Active States (Showing on the Livewire Dashboard)
             Movement::factory()
-                ->count(40)
+                ->count(15)
                 ->recycle($employees)
                 ->active()
                 ->create();
 
-            Movement::factory()
-                ->count(10)
-                ->recycle($employees)
-                ->future()
-                ->create();
-
-            // Specific Scenarios using state overrides
+            // Long-term/Indefinite Scenarios (Medical Leave/Travel)
             Movement::factory()
                 ->count(5)
                 ->recycle($employees)
                 ->create([
-                    'type'     => MovementType::LEAVE,
-                    'ended_at' => null,
-                    'remark'   => 'Medical Leave - TBD',
+                    'type'       => MovementType::LEAVE,
+                    'started_at' => now()->subDays(2),
+                    'ended_at'   => null,
+                    'remark'     => 'Extended Medical Leave',
                 ]);
         }
 
@@ -86,7 +83,7 @@ class DatabaseSeeder extends Seeder
             [
                 ['Total Users', User::count()],
                 ['Total Movements', Movement::count()],
-                ['Active (Currently Away)', Movement::active()->count()],
+                ['Active (Away Now)', Movement::active()->count()],
             ]
         );
         $this->command->info('✅ Seeding Completed!');

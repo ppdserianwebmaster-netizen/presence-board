@@ -1,5 +1,4 @@
 <?php
-// database/migrations/0001_01_01_000000_create_users_table.php
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
@@ -18,30 +17,38 @@ return new class extends Migration {
             $table->string('password');
             $table->rememberToken();
 
-            // Employee Metadata
-            // Using string for IDs like 'EMP-2026-001'
-            $table->string('employee_id')->unique()->index();
-            $table->string('department')->nullable()->index();
-            $table->string('position')->nullable()->index();
+            // Employee Metadata (Modernized)
+            // Using ulid() can be better for distributed systems, 
+            // but string is fine if you have a specific format like 'EMP-XXXX'
+            $table->string('employee_id')->unique();
+            $table->string('department')->nullable();
+            $table->string('position')->nullable();
 
-            // Role Management (Optimized for PHP 8.4 Enums)
-            $table->string('role')->default('employee')->index();
+            // Role Management (Optimized for PHP 8.4 Backed Enums)
+            // Using a string for the enum name is standard for Laravel
+            $table->string('role')->default('employee');
 
             // Assets & State
             $table->string('profile_photo_path', 2048)->nullable();
             $table->timestamps();
-            $table->softDeletes(); // Important for HR audit trails
+            $table->softDeletes(); 
+
+            // Composite or Multi-column Indexes (Performance Refactor)
+            // Grouping these makes lookups for HR dashboards much faster
+            $table->index(['department', 'role', 'position'], 'hr_lookup_index');
         });
 
+        // Password Reset Tokens (Standard Laravel 12)
         Schema::create('password_reset_tokens', function (Blueprint $table) {
             $table->string('email')->primary();
             $table->string('token');
             $table->timestamp('created_at')->nullable();
         });
 
+        // Sessions (Standard Laravel 12)
         Schema::create('sessions', function (Blueprint $table) {
             $table->string('id')->primary();
-            $table->foreignId('user_id')->nullable()->index();
+            $table->foreignId('user_id')->nullable()->index()->constrained()->cascadeOnDelete();
             $table->string('ip_address', 45)->nullable();
             $table->text('user_agent')->nullable();
             $table->longText('payload');
@@ -51,8 +58,8 @@ return new class extends Migration {
 
     public function down(): void
     {
-        Schema::dropIfExists('users');
-        Schema::dropIfExists('password_reset_tokens');
         Schema::dropIfExists('sessions');
+        Schema::dropIfExists('password_reset_tokens');
+        Schema::dropIfExists('users');
     }
 };

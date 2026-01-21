@@ -1,35 +1,46 @@
 <?php
-// database\factories\UserFactory.php
 
 namespace Database\Factories;
 
 use App\Models\User;
 use App\Enums\UserRole;
 use Illuminate\Database\Eloquent\Factories\Factory;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
 
 /**
- * User Factory - Refactored for Laravel 12
+ * User Factory - Refactored for Laravel 12 & PHP 8.4
  */
 class UserFactory extends Factory
 {
     protected $model = User::class;
 
+    /**
+     * Define the model's default state.
+     */
     public function definition(): array
     {
         return [
             'name' => fake()->name(),
             'email' => fake()->unique()->safeEmail(),
             'email_verified_at' => now(),
-            'password' => 'password', // Casts in User.php will handle hashing
-            'employee_id' => fake()->unique()->bothify('EMP-####-??'), // e.g. EMP-1234-XY
+            
+            // Laravel 12 Best Practice: Cache the hash to speed up seeding
+            'password' => static::$password ??= Hash::make('password'),
+            
+            'employee_id' => fake()->unique()->bothify('EMP-####-??'), 
             'department' => fake()->randomElement(['IT', 'HR', 'Finance', 'Admin', 'Operations']),
             'position' => fake()->jobTitle(),
-            'role' => UserRole::EMPLOYEE,
+            'role' => UserRole::EMPLOYEE, // Uses the Backed Enum
             'profile_photo_path' => null,
             'remember_token' => Str::random(10),
         ];
     }
+
+    /**
+     * Password caching for high-speed seeding.
+     */
+    protected static ?string $password;
 
     /*
     |--------------------------------------------------------------------------
@@ -37,9 +48,6 @@ class UserFactory extends Factory
     |--------------------------------------------------------------------------
     */
 
-    /**
-     * Create a System Administrator.
-     */
     public function admin(): static
     {
         return $this->state(fn (array $attributes) => [
@@ -50,9 +58,6 @@ class UserFactory extends Factory
         ]);
     }
 
-    /**
-     * Create a user with a specific department.
-     */
     public function inDepartment(string $department): static
     {
         return $this->state(fn (array $attributes) => [
@@ -60,9 +65,6 @@ class UserFactory extends Factory
         ]);
     }
 
-    /**
-     * Set email as unverified.
-     */
     public function unverified(): static
     {
         return $this->state(fn (array $attributes) => [

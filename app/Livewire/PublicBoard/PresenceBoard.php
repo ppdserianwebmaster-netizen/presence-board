@@ -5,29 +5,26 @@ namespace App\Livewire\PublicBoard;
 use App\Models\User;
 use Livewire\Component;
 use Livewire\Attributes\Computed;
+use Livewire\Attributes\Layout;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Collection;
 
+#[Layout('components.layouts.public')]
 class PresenceBoard extends Component
 {
     public int $page = 1;
     public int $perPage = 8;
 
-    // Cache durations in seconds
     private const int DATA_CACHE = 8; 
     private const int STATS_CACHE = 30;
 
-    /**
-     * Rotates the page. 
-     * Called by wire:poll.8s in the view.
-     */
     public function rotatePage(): void
     {
         $this->page = ($this->page % $this->totalPages) + 1;
     }
 
     #[Computed]
-    public function totalPages(): int
+    public function totalPages(): int 
     {
         return (int) ceil($this->totalUsers / $this->perPage) ?: 1;
     }
@@ -35,7 +32,6 @@ class PresenceBoard extends Component
     #[Computed]
     public function users(): Collection
     {
-        // Cache per page to prevent DB hits on every poll rotation
         return Cache::remember("pb_page_v2_{$this->page}", self::DATA_CACHE, function () {
             return User::employee()
                 ->with(['currentMovementRel']) 
@@ -48,14 +44,15 @@ class PresenceBoard extends Component
 
     #[Computed]
     public function totalUsers(): int 
-    { 
-        return Cache::remember('pb_total_count', self::STATS_CACHE, fn () => User::employee()->count()); 
+    {
+        return Cache::remember('pb_total_count', self::STATS_CACHE, function () {
+            return User::employee()->count();
+        });
     }
     
     #[Computed]
     public function awayCount(): int 
     {
-        // Counts users currently assigned to an active movement
         return Cache::remember('pb_away_count', self::STATS_CACHE, function() {
             return User::employee()->whereHas('currentMovementRel')->count();
         });
@@ -67,18 +64,13 @@ class PresenceBoard extends Component
         return max(0, $this->totalUsers - $this->awayCount); 
     }
 
-    /**
-     * UI Helper: Maps status to Terminal colors and icons.
-     * Updated to match the High-Contrast Black design.
-     */
     public function getCardData(User $user): array
     {
         $movement = $user->current_movement;
 
-        // 1. Default: IN OFFICE
         if (!$movement) {
             return [
-                'statusColor' => '#10b981', // Emerald 500
+                'statusColor' => '#10b981', 
                 'badgeLabel'  => 'PRESENT',
                 'typeLabel'   => 'In Office',
                 'iconName'    => 'check-circle'
@@ -87,32 +79,27 @@ class PresenceBoard extends Component
 
         $end = $movement->ended_at;
 
-        // 2. Define Away States based on the return time
         return match(true) {
-            // No end date set
             !$end => [
-                'statusColor' => '#8b5cf6', // Violet 500
+                'statusColor' => '#8b5cf6', 
                 'badgeLabel'  => 'OUT',
                 'typeLabel'   => $movement->type->label(),
                 'iconName'    => $movement->type->icon()
             ],
-            // Returning later today
             $end->isToday() => [
-                'statusColor' => '#f59e0b', // Amber 500
+                'statusColor' => '#f59e0b', 
                 'badgeLabel'  => 'BACK TODAY',
                 'typeLabel'   => $movement->type->label(),
                 'iconName'    => 'clock'
             ],
-            // Returning tomorrow
             $end->isTomorrow() => [
-                'statusColor' => '#0ea5e9', // Sky 500
+                'statusColor' => '#0ea5e9', 
                 'badgeLabel'  => 'TOMORROW',
                 'typeLabel'   => $movement->type->label(),
                 'iconName'    => 'calendar'
             ],
-            // Away for multiple days
             default => [
-                'statusColor' => '#f43f5e', // Rose 500
+                'statusColor' => '#f43f5e', 
                 'badgeLabel'  => 'AWAY',
                 'typeLabel'   => $movement->type->label(),
                 'iconName'    => 'plane'
@@ -122,7 +109,6 @@ class PresenceBoard extends Component
 
     public function render()
     {
-        return view('livewire.public-board.presence-board')
-            ->layout('components.layouts.public');
+        return view('livewire.public-board.presence-board');
     }
 }

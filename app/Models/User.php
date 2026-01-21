@@ -1,22 +1,17 @@
 <?php
-// app\Models\User.php
 
 namespace App\Models;
 
 use App\Enums\UserRole;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
-/**
- * User Model - Employee Management System
- * Refactored for Laravel 12 & PHP 8.4
- */
 class User extends Authenticatable
 {
     use HasFactory, Notifiable, SoftDeletes;
@@ -33,42 +28,69 @@ class User extends Authenticatable
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
-            'role' => UserRole::class, // Enum Casting
+            'role' => UserRole::class, 
         ];
     }
 
     /*
     |--------------------------------------------------------------------------
-    | PHP 8.4 Property Hooks (Replacing Attribute::make)
+    | Property Hooks (Modern PHP 8.4)
     |--------------------------------------------------------------------------
     */
 
     /**
-     * Accessor for the active movement object.
-     * Usage: $user->current_movement
+     * Access the current movement via the relationship.
      */
     public ?Movement $current_movement {
         get => $this->currentMovementRel;
     }
 
     /**
-     * PHP 8.4 Property Hook for Profile Photo
+     * Get URL for profile photo with fallback.
      */
     public string $profile_photo_url {
         get => $this->profile_photo_path 
             ? asset('storage/' . $this->profile_photo_path) 
-            : asset('img/default-avatar.png'); // Ensure this matches your folder name!
+            : asset('img/default-avatar.png');
     }
 
     /**
-     * Role Boolean Checks
+     * Boolean role checks using hooks.
      */
-    public bool $is_admin {
-        get => $this->role === UserRole::ADMIN;
+    public bool $is_admin { get => $this->role === UserRole::ADMIN; }
+    public bool $is_employee { get => $this->role === UserRole::EMPLOYEE; }
+
+    /**
+     * Generate initials from name (e.g., "John Doe" -> "JD").
+     */
+    public string $initials {
+        get => Str::of($this->name)
+            ->explode(' ')
+            ->take(2)
+            ->map(fn($word) => Str::upper(Str::substr($word, 0, 1)))
+            ->implode('');
     }
 
-    public bool $is_employee {
-        get => $this->role === UserRole::EMPLOYEE;
+    /*
+    |--------------------------------------------------------------------------
+    | Query Scopes (Fixes the BadMethodCallException)
+    |--------------------------------------------------------------------------
+    */
+
+    /**
+     * Scope for PresenceBoard: User::employee()
+     */
+    public function scopeEmployee(Builder $query): void
+    {
+        $query->where('role', UserRole::EMPLOYEE);
+    }
+
+    /**
+     * Scope: User::admin()
+     */
+    public function scopeAdmin(Builder $query): void
+    {
+        $query->where('role', UserRole::ADMIN);
     }
 
     /*
@@ -82,44 +104,17 @@ class User extends Authenticatable
         return $this->hasMany(Movement::class);
     }
 
+    /**
+     * Fetches the movement that is currently active.
+     */
     public function currentMovementRel(): HasOne
     {
         return $this->hasOne(Movement::class)
             ->where('started_at', '<=', now())
             ->where(fn($query) => 
-                $query->whereNull('ended_at')->orWhere('ended_at', '>', now())
+                $query->whereNull('ended_at')
+                      ->orWhere('ended_at', '>', now())
             )
             ->latestOfMany('started_at');
-    }
-
-    /*
-    |--------------------------------------------------------------------------
-    | Scopes & Helpers
-    |--------------------------------------------------------------------------
-    */
-
-    /**
-     * Filter users by Admin role.
-     */
-    public function scopeAdmin($query): void
-    {
-        $query->where('role', UserRole::ADMIN);
-    }
-
-    /**
-     * Filter users by Employee role.
-     */
-    public function scopeEmployee($query): void
-    {
-        $query->where('role', UserRole::EMPLOYEE);
-    }
-
-    public function initials(): string
-    {
-        return Str::of($this->name)
-            ->explode(' ')
-            ->take(2)
-            ->map(fn($word) => Str::upper(Str::substr($word, 0, 1)))
-            ->implode('');
     }
 }

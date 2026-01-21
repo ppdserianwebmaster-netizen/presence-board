@@ -1,5 +1,4 @@
 <?php
-// app\Models\Movement.php
 
 namespace App\Models;
 
@@ -11,13 +10,14 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Builder;
 use Carbon\CarbonInterface;
 
-/**
- * Movement Model - Tracking employee presence.
- * Refactored for Laravel 12 & PHP 8.4
- */
 class Movement extends Model
 {
     use HasFactory, SoftDeletes;
+
+    /**
+     * NOTE: We removed 'public private(set) int $user_id' 
+     * because it conflicts with Eloquent's dynamic attribute system.
+     */
 
     protected $fillable = [
         'user_id', 'started_at', 'ended_at', 'type', 'remark',
@@ -34,66 +34,64 @@ class Movement extends Model
 
     /*
     |--------------------------------------------------------------------------
-    | PHP 8.4 Property Hooks
+    | Property Hooks (Calculated Attributes)
     |--------------------------------------------------------------------------
     */
 
     /**
-     * Replaces isActive() Attribute.
-     * Usage: if ($movement->is_active) ...
+     * Virtual Hook: Provides the read-only 'user_id' behavior 
+     * without breaking Eloquent's initialization.
      */
+    public int $assigned_user_id {
+        get => $this->user_id;
+    }
+
     public bool $is_active {
         get => $this->started_at <= now() && 
                ($this->ended_at === null || $this->ended_at > now());
     }
 
-    /**
-     * Determines if the movement has no set end time.
-     */
     public bool $is_indefinite {
         get => $this->ended_at === null;
     }
 
     /**
-     * Returns a human-readable duration (e.g., "2 hours").
-     * Replaces the duration() helper method.
+     * PHP 8.4: Improved multi-line hook for complex logic
      */
     public string $duration_label {
         get {
-            if ($this->is_indefinite) return 'Indefinite';
+            if ($this->is_indefinite) return 'In Progress...';
 
             return $this->started_at->diffForHumans($this->ended_at, [
                 'syntax' => CarbonInterface::DIFF_ABSOLUTE,
-                'parts' => 1
+                'parts' => 1,
+                'short' => true, 
             ]);
         }
     }
 
+    /**
+     * Total minutes for analytics/reporting
+     */
+    public int $total_minutes {
+        get => (int) $this->started_at->diffInMinutes($this->ended_at ?? now());
+    }
+
     /*
     |--------------------------------------------------------------------------
-    | Query Scopes (Standard Method Syntax)
+    | Query Scopes
     |--------------------------------------------------------------------------
-    | Note: Methods must use { } even in PHP 8.4.
-    | Only Property Hooks use the => syntax.
     */
 
-    public function scopeActive(Builder $query): Builder 
+    public function scopeActive(Builder $query): void 
     {
-        return $query->where('started_at', '<=', now())
-            ->where(fn(Builder $q) => 
-                $q->whereNull('ended_at')->orWhere('ended_at', '>', now())
-            );
+        $query->where('started_at', '<=', now())
+              ->where(fn(Builder $q) => $q->whereNull('ended_at')->orWhere('ended_at', '>', now()));
     }
 
-    public function scopeCompleted(Builder $query): Builder
+    public function scopeOfType(Builder $query, MovementType $type): void
     {
-        return $query->whereNotNull('ended_at')
-                    ->where('ended_at', '<', now());
-    }
-
-    public function scopeUpcoming(Builder $query): Builder
-    {
-        return $query->where('started_at', '>', now());
+        $query->where('type', $type);
     }
 
     /*
@@ -105,5 +103,35 @@ class Movement extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Model Events
+    |--------------------------------------------------------------------------
+    */
+
+    /**
+     * Clear the public board cache whenever a movement is saved or deleted.
+     */
+    protected static function booted(): void
+    {
+        // Fires on create, update, and save
+        static::saved(fn () => self::clearBoardCache());
+        
+        // Fires when a movement is deleted
+        static::deleted(fn () => self::clearBoardCache());
+    }
+
+    private static function clearBoardCache(): void
+    {
+        // This clears the specific count and page caches used in PresenceBoard
+        \Illuminate\Support\Facades\Cache::forget('pb_total_count');
+        \Illuminate\Support\Facades\Cache::forget('pb_away_count');
+        
+        // Since we don't know which page the user is on, we flush all cache 
+        // tags if using a tag-supported driver (like Redis), 
+        // or just flush everything for simplicity on small-scale boards.
+        \Illuminate\Support\Facades\Cache::flush();
     }
 }

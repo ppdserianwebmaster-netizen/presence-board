@@ -1,5 +1,4 @@
 <?php
-// database\factories\MovementFactory.php
 
 namespace Database\Factories;
 
@@ -9,17 +8,16 @@ use App\Enums\MovementType;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
-/**
- * Movement Factory
- * Optimized for realistic distribution of employee presence data.
- */
 class MovementFactory extends Factory
 {
     protected $model = Movement::class;
 
+    /**
+     * Default state using your probability distribution logic.
+     */
     public function definition(): array
     {
-        // Probability distribution: 50% Active, 30% Past, 20% Future
+        // Probability distribution for general seeding
         $state = fake()->randomElement([
             ...array_fill(0, 5, 'active'),
             ...array_fill(0, 3, 'past'),
@@ -61,39 +59,58 @@ class MovementFactory extends Factory
 
     /*
     |--------------------------------------------------------------------------
-    | Explicit States (Corrected Method Syntax)
+    | Explicit States (Required by DatabaseSeeder)
     |--------------------------------------------------------------------------
     */
 
+    /**
+     * Specifically forces a 'Past' record.
+     */
+    public function past(): static
+    {
+        return $this->state(fn() => [
+            'started_at' => $s = now()->subDays(rand(5, 20)),
+            'ended_at'   => (clone $s)->addDays(rand(1, 3)),
+        ]);
+    }
+
+    /**
+     * Specifically forces an 'Active' record (Visible on Dashboard).
+     */
     public function active(): static 
     {
         return $this->state(fn() => [
-            'started_at' => now()->subDay(), 
-            'ended_at'   => now()->addDay()
+            'started_at' => now()->subHours(rand(1, 12)), 
+            'ended_at'   => fake()->boolean(80) ? now()->addHours(rand(1, 12)) : null
         ]);
     }
 
-    public function past(): static 
+    /**
+     * Specifically forces a 'Future' record.
+     */
+    public function future(): static
     {
         return $this->state(fn() => [
-            'started_at' => now()->subDays(10), 
-            'ended_at'   => now()->subDays(8)
+            'started_at' => $s = now()->addDays(rand(2, 5)),
+            'ended_at'   => (clone $s)->addDays(rand(1, 5)),
         ]);
     }
 
-    public function future(): static 
-    {
-        return $this->state(fn() => [
-            'started_at' => now()->addDays(5), 
-            'ended_at'   => now()->addDays(7)
-        ]);
-    }
-
+    /**
+     * Helpers for specific scenario testing.
+     */
     public function returningToday(): static 
     {
         return $this->state(fn() => [
             'started_at' => now()->subHours(2), 
             'ended_at'   => now()->addHours(2)
+        ]);
+    }
+
+    public function type(MovementType $type): static
+    {
+        return $this->state(fn() => [
+            'type' => $type,
         ]);
     }
 }

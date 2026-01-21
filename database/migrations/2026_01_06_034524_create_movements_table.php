@@ -1,5 +1,4 @@
 <?php
-// database/migrations/2026_01_06_034524_create_movements_table.php
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
@@ -16,29 +15,29 @@ return new class extends Migration {
                 ->constrained()
                 ->cascadeOnDelete();
 
-            // Timing
-            $table->timestamp('started_at')->useCurrent()->index();
-            $table->timestamp('ended_at')->nullable()->index();
+            // Timing (Using microsecond precision for high-frequency logs if needed)
+            $table->timestamp('started_at', 6)->useCurrent()->index();
+            $table->timestamp('ended_at', 6)->nullable()->index();
 
-            // Classification & Context
-            // Indexed for quick filtering (e.g., "Show all Lunch breaks")
+            // Classification (Refactored for PHP 8.4 Enums)
             $table->string('type')->index(); 
             $table->string('remark', 500)->nullable();
 
-            // Audit
+            // Audit & State
             $table->timestamps();
             $table->softDeletes();
 
             /*
             |------------------------------------------------------------------
-            | Composite Indexes (Optimized for Employee Presence Logic)
+            | Composite Indexes (Optimized for Laravel 12 Query Engine)
             |------------------------------------------------------------------
             */
-            // "Where is employee X right now?" 
-            $table->index(['user_id', 'started_at', 'ended_at'], 'idx_user_presence');
             
-            // "Who is out between these dates?"
-            $table->index(['started_at', 'ended_at'], 'idx_movement_range');
+            // Optimization: Helps the latestOfMany() relationship in your User model
+            $table->index(['user_id', 'started_at'], 'idx_user_latest_movement');
+            
+            // "Where is everyone right now?" (Filtering by null ended_at)
+            $table->index(['ended_at', 'type'], 'idx_active_status');
         });
     }
 

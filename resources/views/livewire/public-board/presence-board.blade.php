@@ -1,3 +1,4 @@
+{{-- resources\views\livewire\public-board\presence-board.blade.php --}}
 <div wire:poll.8s="rotatePage" class="h-screen w-screen bg-black flex flex-col overflow-hidden font-sans border-[10px] border-black">
 
     {{-- Header: Brand & Identity --}}
@@ -171,6 +172,16 @@
     /* Grayscale ensures the status colors (green/amber) are the only visual priorities */
     img {
         filter: grayscale(100%) contrast(1.1);
+    }
+
+    /* Smoothly fade in/out during rotation */
+    .grid > div {
+        transition: opacity 0.5s ease-in-out, transform 0.5s ease-out;
+    }
+
+    /* Ensure the clock tabular-nums prevent "jumping" text */
+    .tabular-nums {
+        font-variant-numeric: tabular-nums;
     }
 </style>
 @endpush
