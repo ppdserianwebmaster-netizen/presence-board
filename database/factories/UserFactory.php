@@ -25,8 +25,8 @@ class UserFactory extends Factory
             'email' => fake()->unique()->safeEmail(),
             'email_verified_at' => now(),
             
-            // Laravel 12 Best Practice: Cache the hash to speed up seeding
-            'password' => static::$password ??= Hash::make('password'),
+            // Let the Model Cast handle the hashing
+            'password' => 'password',
             
             'employee_id' => fake()->unique()->bothify('EMP-####-??'), 
             'department' => fake()->randomElement(['IT', 'HR', 'Finance', 'Admin', 'Operations']),

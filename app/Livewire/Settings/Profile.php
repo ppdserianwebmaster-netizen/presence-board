@@ -7,9 +7,11 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Session;
 use Illuminate\Validation\Rule;
 use Livewire\Component;
+use Livewire\Attributes\Layout;
 
 class Profile extends Component
 {
+    #[Layout('components.layouts.app')]
     public string $name = '';
 
     public string $email = '';

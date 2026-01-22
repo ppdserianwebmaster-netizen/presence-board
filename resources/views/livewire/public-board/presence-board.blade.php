@@ -18,8 +18,8 @@
             <div class="h-16 w-[2px] bg-slate-800"></div> {{-- Vertical Separator --}}
             
             <div>
-                <h1 class="text-5xl font-black text-white tracking-tighter uppercase leading-none">Personnel Status</h1>
-                <p class="text-slate-500 font-mono text-[11px] tracking-[0.5em] uppercase mt-2 italic">Automated Distribution System</p>
+                <h1 class="text-5xl font-black text-white tracking-tighter uppercase leading-none">Presence Board</h1>
+                <p class="text-slate-500 font-mono text-[11px] tracking-[0.5em] uppercase mt-2 italic">Centralized Personnel Status And Presence Tracking</p>
             </div>
         </div>
 

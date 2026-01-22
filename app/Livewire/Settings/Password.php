@@ -6,9 +6,11 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\Rules\Password as PasswordRule;
 use Illuminate\Validation\ValidationException;
 use Livewire\Component;
+use Livewire\Attributes\Layout;
 
 class Password extends Component
 {
+    #[Layout('components.layouts.app')]
     public string $current_password = '';
 
     public string $password = '';

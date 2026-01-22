@@ -61,13 +61,16 @@ class User extends Authenticatable
     public bool $is_employee { get => $this->role === UserRole::EMPLOYEE; }
 
     /**
-     * Generate initials from name (e.g., "John Doe" -> "JD").
+     * Standard method for the Starter Kit's components.
+     * This fixes the BadMethodCallException.
      */
-    public string $initials {
-        get => Str::of($this->name)
+    public function initials(): string
+    {
+        return Str::of($this->name)
             ->explode(' ')
+            ->filter()
             ->take(2)
-            ->map(fn($word) => Str::upper(Str::substr($word, 0, 1)))
+            ->map(fn ($segment) => (string) Str::upper(Str::substr($segment, 0, 1)))
             ->implode('');
     }
 
