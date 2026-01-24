@@ -20,7 +20,7 @@ class Movement extends Model
      */
 
     protected $fillable = [
-        'user_id', 'started_at', 'ended_at', 'type', 'remark',
+        'user_id', 'started_at', 'ended_at', 'type', 'remark', 'logged_at',
     ];
 
     protected function casts(): array
@@ -28,6 +28,7 @@ class Movement extends Model
         return [
             'started_at' => 'datetime',
             'ended_at'   => 'datetime',
+            'logged_at'  => 'datetime',
             'type'       => MovementType::class,
         ];
     }
@@ -99,6 +100,11 @@ class Movement extends Model
     | Relationships
     |--------------------------------------------------------------------------
     */
+
+    // Add this block
+    protected $casts = [
+        'logged_at' => 'datetime',
+    ];
 
     public function user(): BelongsTo
     {

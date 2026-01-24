@@ -7,7 +7,6 @@ use App\Livewire\Forms\UserForm;
 use Livewire\Component;
 use Livewire\WithPagination;
 use Livewire\Attributes\Layout;
-use Illuminate\Support\Facades\Auth;
 
 class UserIndex extends Component
 {
@@ -39,13 +38,30 @@ class UserIndex extends Component
         $this->dispatch('notify', message: 'Success!');
     }
 
-    public function delete(User $user) { $user->delete(); }
+    public function delete(User $user) 
+    { 
+        // Prevent archiving yourself
+        if ($user->id === auth()->id()) {
+            // Optional: add a session flash or notification here
+            return;
+        }
+        $user->delete(); 
+    }
 
-    public function restore($id) { User::withTrashed()->find($id)->restore(); }
+    public function restore($id) 
+    { 
+        // Logic: You can only restore others, or if you were soft-deleted 
+        // (though usually, you can't log in if soft-deleted)
+        User::withTrashed()->find($id)->restore(); 
+    }
 
     public function forceDelete($id) 
     { 
-        if ($id == Auth::id()) return;
+        // Prevent permanently wiping yourself from the database
+        if ($id == auth()->id()) {
+            return;
+        }
+        
         User::withTrashed()->find($id)->forceDelete(); 
     }
 

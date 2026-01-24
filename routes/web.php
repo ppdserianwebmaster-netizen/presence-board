@@ -6,7 +6,6 @@ use App\Livewire\Settings\Profile;
 use App\Livewire\Settings\TwoFactor;
 use App\Livewire\PublicBoard\PresenceBoard;
 use App\Livewire\Admin;
-use App\Livewire\User;
 use Illuminate\Support\Facades\Route;
 use Laravel\Fortify\Features;
 
@@ -25,30 +24,18 @@ Route::get('/presence-board', PresenceBoard::class)->name('presence.board');
 */
 Route::middleware(['auth', 'verified'])->group(function () {
     
-    // Default Dashboard
+    // Default Dashboard (Entry point after login)
     Route::view('dashboard', 'dashboard')->name('dashboard');
 
     /*
     |--------------------------------------------------------------------------
-    | Admin Resources (CRUD)
+    | Admin Resources
     |--------------------------------------------------------------------------
     */
     Route::middleware(['can:admin-access'])->prefix('admin')->name('admin.')->group(function () {
-        // User Management
-        Route::get('/users', Admin\User\UserIndex::class)->name('users.index');
         
-        // Global Movement Management
+        Route::get('/users', Admin\User\UserIndex::class)->name('users.index');
         Route::get('/movements', Admin\Movement\MovementIndex::class)->name('movements.index');
-    });
-
-    /*
-    |--------------------------------------------------------------------------
-    | User Self-Service
-    |--------------------------------------------------------------------------
-    */
-    Route::prefix('my')->name('user.')->group(function () {
-        Route::get('/presence', User\MyPresence::class)->name('presence');
-        Route::get('/history', User\MyHistory::class)->name('history');
     });
 
     /*
