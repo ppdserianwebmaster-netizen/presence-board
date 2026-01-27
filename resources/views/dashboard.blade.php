@@ -20,13 +20,16 @@
 <x-layouts.app :title="__('Dashboard')">
     <div class="flex h-full w-full flex-1 flex-col gap-4">
         {{-- 
-            Since we have the 'is_admin' hook in our User model, 
-            we simply switch the entire view content here.
+            Switching views based on the UserRole Enum.
+            This ensures that even if we add more roles later, 
+            the logic remains clean and centralized.
         --}}
         
         @if(auth()->user()->is_admin)
+            {{-- Admin Overview: Statistics and Analytics --}}
             <livewire:admin.dashboard-stats />
         @else
+            {{-- Employee View: Personal Movement Logs and Entry Form --}}
             <livewire:user.employee-dashboard />
         @endif
     </div>

@@ -2,7 +2,7 @@
 <div>
     <div class="p-6">
         <div class="flex flex-col gap-6">
-            {{-- Header Section --}}
+            {{-- Header Section: Synced with Personnel --}}
             <div class="flex justify-between items-end">
                 <div>
                     <h1 class="text-2xl font-bold dark:text-white">Movement Management</h1>
@@ -13,7 +13,7 @@
                 </button>
             </div>
 
-            {{-- Search Bar --}}
+            {{-- Search Bar: Fixed visibility (removed border-transparent) --}}
             <div class="relative max-w-xs">
                 <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                     <svg class="h-4 w-4 text-neutral-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -21,10 +21,10 @@
                     </svg>
                 </div>
                 <input wire:model.live.debounce.300ms="search" type="text" placeholder="Search employee name..." 
-                    class="w-full pl-10 pr-4 py-2.5 bg-neutral-100 dark:bg-neutral-800/50 border-transparent focus:bg-white dark:focus:bg-neutral-900 focus:ring-2 focus:ring-neutral-200 dark:focus:ring-neutral-700 transition-all rounded-xl text-sm dark:text-white outline-none">
+                    class="w-full pl-10 pr-4 py-2.5 bg-neutral-100 dark:bg-neutral-800/50 border-neutral-200 dark:border-neutral-700 focus:bg-white dark:focus:bg-neutral-900 focus:ring-2 focus:ring-neutral-200 dark:focus:ring-neutral-700 transition-all rounded-xl text-sm dark:text-white outline-none">
             </div>
 
-            {{-- Table Container --}}
+            {{-- Table Container: Unified borders and removed "bouncy" group-hover --}}
             <div class="overflow-hidden rounded-xl border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 shadow-sm">
                 <table class="w-full text-left text-sm">
                     <thead class="bg-neutral-50 dark:bg-neutral-800/50 text-neutral-500 uppercase text-[10px] font-bold tracking-widest">
@@ -37,9 +37,7 @@
                     </thead>
                     <tbody class="divide-y divide-neutral-100 dark:divide-neutral-800">
                         @forelse($movements as $m)
-                            <tr wire:key="{{ $m->id }}" 
-                                class="group border-l-4 border-transparent hover:border-{{ $m->type->color() }}-500 hover:bg-neutral-50 dark:hover:bg-neutral-800/50 transition-all">
-                                
+                            <tr wire:key="{{ $m->id }}" class="hover:bg-neutral-50 dark:hover:bg-neutral-800/50 transition-colors">
                                 <td class="px-6 py-4">
                                     <div class="font-bold text-neutral-900 dark:text-white">{{ $m->user->name }}</div>
                                     <div class="text-[10px] text-neutral-400 font-mono tracking-tighter">{{ $m->user->employee_id }}</div>
@@ -52,10 +50,10 @@
                                 </td>
 
                                 <td class="px-6 py-4">
-                                    <div class="text-xs font-medium text-neutral-600 dark:text-neutral-400 font-mono">
-                                        {{ $m->started_at->format('d M, H:i') }} — {{ $m->ended_at?->format('d M, H:i') ?? 'Ongoing' }}
+                                    <div class="text-xs font-bold text-neutral-900 dark:text-white font-mono">
+                                        {{ $m->started_at->format('d M, H:i') }} <span class="text-neutral-400 mx-1">→</span> {{ $m->ended_at?->format('d M, H:i') ?? 'Ongoing' }}
                                     </div>
-                                    <div class="text-[10px] font-black uppercase text-neutral-400 mt-0.5">
+                                    <div class="text-[10px] font-bold uppercase text-neutral-400 mt-0.5">
                                         {{ $m->duration_label }}
                                     </div>
                                 </td>
@@ -77,7 +75,7 @@
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="4" class="px-6 py-10 text-center text-neutral-400 italic font-medium">No movement records found.</td>
+                                <td colspan="4" class="px-6 py-12 text-center text-neutral-400 italic text-sm">No movement records found.</td>
                             </tr>
                         @endforelse
                     </tbody>
@@ -90,7 +88,7 @@
         </div>
     </div>
 
-    {{-- Modal --}}
+    {{-- Modal: Matched to Personnel/Employee Modal Styling --}}
     @if($showingModal)
         <div class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-neutral-950/60 backdrop-blur-sm" 
              x-data x-on:keydown.escape.window="$wire.set('showingModal', false)">
@@ -126,12 +124,12 @@
                     <div class="grid grid-cols-2 gap-4">
                         <div class="space-y-1">
                             <label class="text-[10px] font-bold uppercase text-neutral-400">Started At</label>
-                            <input type="datetime-local" wire:model="form.started_at" class="w-full border border-neutral-200 p-2 rounded-lg dark:bg-neutral-800 dark:border-neutral-700 dark:text-white text-xs outline-none focus:ring-1 focus:ring-neutral-400">
+                            <input type="datetime-local" wire:model="form.started_at" class="w-full border border-neutral-200 p-2 rounded-lg dark:bg-neutral-800 dark:border-neutral-700 dark:text-white text-sm outline-none focus:ring-1 focus:ring-neutral-400">
                             @error('form.started_at') <span class="text-red-500 text-[10px]">{{ $message }}</span> @enderror
                         </div>
                         <div class="space-y-1">
                             <label class="text-[10px] font-bold uppercase text-neutral-400">Ended At (Optional)</label>
-                            <input type="datetime-local" wire:model="form.ended_at" class="w-full border border-neutral-200 p-2 rounded-lg dark:bg-neutral-800 dark:border-neutral-700 dark:text-white text-xs outline-none focus:ring-1 focus:ring-neutral-400">
+                            <input type="datetime-local" wire:model="form.ended_at" class="w-full border border-neutral-200 p-2 rounded-lg dark:bg-neutral-800 dark:border-neutral-700 dark:text-white text-sm outline-none focus:ring-1 focus:ring-neutral-400">
                             @error('form.ended_at') <span class="text-red-500 text-[10px]">{{ $message }}</span> @enderror
                         </div>
                     </div>
@@ -144,7 +142,7 @@
 
                     <div class="flex justify-end gap-3 pt-6 border-t border-neutral-100 dark:border-neutral-800">
                         <button type="button" wire:click="$set('showingModal', false)" class="px-4 py-2 text-sm text-neutral-500 font-bold hover:text-neutral-800 dark:hover:text-white transition-colors">Cancel</button>
-                        <button type="submit" wire:loading.attr="disabled" class="bg-neutral-900 dark:bg-white dark:text-black text-white px-8 py-2 rounded-xl text-sm font-black shadow-lg hover:opacity-90 disabled:opacity-50 transition-all min-w-[140px]">
+                        <button type="submit" wire:loading.attr="disabled" class="bg-neutral-900 dark:bg-white dark:text-black text-white px-8 py-2 rounded-xl text-sm font-black shadow-lg hover:opacity-90 disabled:opacity-50 transition-all flex items-center justify-center min-w-[140px]">
                             <span wire:loading.remove>Save Movement</span>
                             <span wire:loading>Processing...</span>
                         </button>
