@@ -3,26 +3,34 @@
 namespace App\Models;
 
 use App\Enums\MovementType;
-use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Database\Eloquent\SoftDeletes;
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\Builder;
 use Carbon\CarbonInterface;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Facades\Cache;
 
 class Movement extends Model
 {
     use HasFactory, SoftDeletes;
 
     /**
-     * NOTE: We removed 'public private(set) int $user_id' 
-     * because it conflicts with Eloquent's dynamic attribute system.
+     * PHP 8.4 Tip: Asymmetric Visibility could be used here for 
+     * properties not managed by Eloquent's dynamic magic.
      */
-
     protected $fillable = [
-        'user_id', 'started_at', 'ended_at', 'type', 'remark', 'logged_at',
+        'user_id', 
+        'started_at', 
+        'ended_at', 
+        'type', 
+        'remark', 
+        'logged_at',
     ];
 
+    /**
+     * Unified Casting (Laravel 11+ Style)
+     */
     protected function casts(): array
     {
         return [
@@ -35,21 +43,21 @@ class Movement extends Model
 
     /*
     |--------------------------------------------------------------------------
-    | Property Hooks (Calculated Attributes)
+    | PHP 8.4 Property Hooks
     |--------------------------------------------------------------------------
     */
 
     /**
-     * Virtual Hook: Provides the read-only 'user_id' behavior 
-     * without breaking Eloquent's initialization.
+     * Read-only proxy for user_id to prevent accidental overwrites 
+     * while maintaining Eloquent compatibility.
      */
     public int $assigned_user_id {
         get => $this->user_id;
     }
 
     public bool $is_active {
-        get => $this->started_at <= now() && 
-               ($this->ended_at === null || $this->ended_at > now());
+        get => $this->started_at?->isPast() && 
+               ($this->ended_at === null || $this->ended_at->isFuture());
     }
 
     public bool $is_indefinite {
@@ -57,11 +65,13 @@ class Movement extends Model
     }
 
     /**
-     * PHP 8.4: Improved multi-line hook for complex logic
+     * Formatting logic utilizing PHP 8.4 multi-line get hooks.
      */
     public string $duration_label {
         get {
-            if ($this->is_indefinite) return 'In Progress...';
+            if ($this->is_indefinite) {
+                return 'In Progress...';
+            }
 
             return $this->started_at->diffForHumans($this->ended_at, [
                 'syntax' => CarbonInterface::DIFF_ABSOLUTE,
@@ -71,16 +81,13 @@ class Movement extends Model
         }
     }
 
-    /**
-     * Total minutes for analytics/reporting
-     */
     public int $total_minutes {
         get => (int) $this->started_at->diffInMinutes($this->ended_at ?? now());
     }
 
     /*
     |--------------------------------------------------------------------------
-    | Query Scopes
+    | Scopes & Relationships
     |--------------------------------------------------------------------------
     */
 
@@ -90,22 +97,6 @@ class Movement extends Model
               ->where(fn(Builder $q) => $q->whereNull('ended_at')->orWhere('ended_at', '>', now()));
     }
 
-    public function scopeOfType(Builder $query, MovementType $type): void
-    {
-        $query->where('type', $type);
-    }
-
-    /*
-    |--------------------------------------------------------------------------
-    | Relationships
-    |--------------------------------------------------------------------------
-    */
-
-    // Add this block
-    protected $casts = [
-        'logged_at' => 'datetime',
-    ];
-
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
@@ -113,31 +104,28 @@ class Movement extends Model
 
     /*
     |--------------------------------------------------------------------------
-    | Model Events
+    | Model Events & Cache Management
     |--------------------------------------------------------------------------
     */
 
-    /**
-     * Clear the public board cache whenever a movement is saved or deleted.
-     */
     protected static function booted(): void
     {
-        // Fires on create, update, and save
+        // Using static listeners for better performance
         static::saved(fn () => self::clearBoardCache());
-        
-        // Fires when a movement is deleted
         static::deleted(fn () => self::clearBoardCache());
     }
 
+    /**
+     * Refined Cache Clearing.
+     * Instead of Cache::flush() (which kills sessions and other data), 
+     * we target specific keys.
+     */
     private static function clearBoardCache(): void
     {
-        // This clears the specific count and page caches used in PresenceBoard
-        \Illuminate\Support\Facades\Cache::forget('pb_total_count');
-        \Illuminate\Support\Facades\Cache::forget('pb_away_count');
+        Cache::forget('pb_total_count');
+        Cache::forget('pb_away_count');
         
-        // Since we don't know which page the user is on, we flush all cache 
-        // tags if using a tag-supported driver (like Redis), 
-        // or just flush everything for simplicity on small-scale boards.
-        \Illuminate\Support\Facades\Cache::flush();
+        // Pro-tip: If using Livewire pagination, consider using a 'presence_board' 
+        // cache tag if your driver supports it (Redis/Memcached).
     }
 }

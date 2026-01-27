@@ -9,83 +9,114 @@ use App\Imports\UsersImport;
 use App\Enums\MovementType;
 use Maatwebsite\Excel\Facades\Excel;
 
+/**
+ * Database Seeder - Optimized for Laravel 12 & PHP 8.4
+ * Orchestrates the hydration of the system with realistic data.
+ */
 class DatabaseSeeder extends Seeder
 {
     /**
-     * PHP 8.4: Constants can now have type hints!
+     * PHP 8.4: Typed Constants
      */
     private const bool USE_EXCEL_IMPORT = true;
-    private const string EXCEL_FILE_PATH = 'employees.xlsx';
+    private const string EXCEL_FILE_NAME = 'employees.xlsx';
 
+    /**
+     * Run the database seeds.
+     */
     public function run(): void
     {
         $this->command->info('🌱 Starting Database Seeding...');
 
-        // 1. Create Admin (Primary Account)
+        // 1. Create Default Admin
+        // This ensures you always have a login after a fresh migration.
         User::factory()->admin()->create([
-            'name'  => 'Admin User',
-            'email' => 'admin@example.com',
-            'password' => 'admin123', // Model cast handles the hashing
+            'name'     => 'System Admin',
+            'email'    => 'admin@example.com',
+            'password' => 'admin123', // Model cast handles hashing
         ]);
 
-        // 2. Hydrate Employee Base
-        $fullPath = storage_path('app/' . self::EXCEL_FILE_PATH);
-        
-        if (self::USE_EXCEL_IMPORT && file_exists($fullPath)) {
-            $this->command->comment('📊 Importing from Excel...');
-            Excel::import(new UsersImport, $fullPath);
-        } else {
-            $this->command->comment('🎲 Generating random employees (Faker)...');
-            User::factory()->count(50)->create();
-        }
+        // 2. Populate Employee Data
+        $this->hydrateEmployees();
 
-        // Fetch only employees for movement assignment
-        $employees = User::employee()->get();
-
-        // 3. Generate Movement History
-        if ($employees->isNotEmpty()) {
-            $this->command->comment('🏃 Generating movement history...');
-
-            // Past History (Completed records)
-            Movement::factory()
-                ->count(100)
-                ->recycle($employees)
-                ->past()
-                ->create();
-
-            // Active States (Showing on the Livewire Dashboard)
-            Movement::factory()
-                ->count(15)
-                ->recycle($employees)
-                ->active()
-                ->create();
-
-            // Long-term/Indefinite Scenarios (Medical Leave/Travel)
-            Movement::factory()
-                ->count(5)
-                ->recycle($employees)
-                ->create([
-                    'type'       => MovementType::LEAVE,
-                    'started_at' => now()->subDays(2),
-                    'ended_at'   => null,
-                    'remark'     => 'Extended Medical Leave',
-                ]);
-        }
+        // 3. Generate Movement History for Employees
+        $this->hydrateMovements();
 
         $this->displaySummary();
     }
 
+    /**
+     * Handles the creation of users via Excel or Factory.
+     */
+    private function hydrateEmployees(): void
+    {
+        // Search in local storage/app/
+        $excelPath = storage_path('app/' . self::EXCEL_FILE_NAME);
+
+        if (self::USE_EXCEL_IMPORT && file_exists($excelPath)) {
+            $this->command->comment('📊 Importing employees from Excel...');
+            Excel::import(new UsersImport, $excelPath);
+        } else {
+            $this->command->warn('⚠️ Excel file not found or import disabled. Using Factory...');
+            User::factory()->count(50)->create();
+        }
+    }
+
+    /**
+     * Creates a mix of past, current, and future movements.
+     */
+    private function hydrateMovements(): void
+    {
+        $employees = User::employee()->get();
+
+        if ($employees->isEmpty()) {
+            $this->command->error('❌ No employees found to assign movements to.');
+            return;
+        }
+
+        $this->command->comment('🏃 Generating movement history...');
+
+        // Past Records (Already returned)
+        Movement::factory()
+            ->count(100)
+            ->recycle($employees)
+            ->past()
+            ->create();
+
+        // Active Records (Currently "Out")
+        Movement::factory()
+            ->count(12)
+            ->recycle($employees)
+            ->active()
+            ->create();
+
+        // Specific Scenarios for Dashboard Testing
+        Movement::factory()
+            ->count(3)
+            ->recycle($employees)
+            ->create([
+                'type'       => MovementType::LEAVE,
+                'started_at' => now()->startOfDay(),
+                'ended_at'   => null,
+                'remark'     => 'On Medical Leave (Seeded)',
+            ]);
+    }
+
+    /**
+     * Renders a clean table summary in the CLI.
+     */
     private function displaySummary(): void
     {
         $this->command->newLine();
         $this->command->table(
-            ['Metric', 'Count'],
+            ['Entity', 'Total Records'],
             [
-                ['Total Users', User::count()],
-                ['Total Movements', Movement::count()],
-                ['Active (Away Now)', Movement::active()->count()],
+                ['Users (Total)', User::count()],
+                ['Users (Employees)', User::employee()->count()],
+                ['Movements (Total)', Movement::count()],
+                ['Movements (Active Now)', Movement::active()->count()],
             ]
         );
-        $this->command->info('✅ Seeding Completed!');
+        $this->command->info('✅ Seeding completed successfully.');
     }
 }

@@ -23,6 +23,9 @@ class User extends Authenticatable
 
     protected $hidden = ['password', 'remember_token'];
 
+    /**
+     * Unified Casting (Laravel 12 Style)
+     */
     protected function casts(): array
     {
         return [
@@ -34,35 +37,45 @@ class User extends Authenticatable
 
     /*
     |--------------------------------------------------------------------------
-    | Property Hooks (Modern PHP 8.4)
+    | PHP 8.4 Property Hooks & Asymmetric Visibility
     |--------------------------------------------------------------------------
     */
 
     /**
-     * Access the current movement via the relationship.
-     */
-    public ?Movement $current_movement {
-        get => $this->currentMovementRel;
-    }
-
-    /**
-     * Get URL for profile photo with fallback.
+     * Profile Photo Hook. 
+     * Using multi-line 'get' for readability.
      */
     public string $profile_photo_url {
-        get => $this->profile_photo_path 
-            ? asset('storage/' . $this->profile_photo_path) 
-            : asset('img/default-avatar.png');
+        get {
+            return $this->profile_photo_path 
+                ? asset('storage/' . $this->profile_photo_path) 
+                : asset('img/default-avatar.png');
+        }
     }
 
     /**
-     * Boolean role checks using hooks.
+     * Role Boolean Hooks.
+     * Clean and lightning-fast for Blade: @if($user->is_admin)
      */
     public bool $is_admin { get => $this->role === UserRole::ADMIN; }
     public bool $is_employee { get => $this->role === UserRole::EMPLOYEE; }
 
     /**
-     * Standard method for the Starter Kit's components.
-     * This fixes the BadMethodCallException.
+     * Dynamic current movement access.
+     * Note: PHP 8.4 allows us to call this like a property.
+     */
+    public ?Movement $current_movement {
+        get => $this->currentMovementRel;
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Business Logic Methods
+    |--------------------------------------------------------------------------
+    */
+
+    /**
+     * Generate initials for avatar fallbacks.
      */
     public function initials(): string
     {
@@ -70,35 +83,13 @@ class User extends Authenticatable
             ->explode(' ')
             ->filter()
             ->take(2)
-            ->map(fn ($segment) => (string) Str::upper(Str::substr($segment, 0, 1)))
+            ->map(fn ($segment) => Str::upper(Str::substr($segment, 0, 1)))
             ->implode('');
     }
 
     /*
     |--------------------------------------------------------------------------
-    | Query Scopes (Fixes the BadMethodCallException)
-    |--------------------------------------------------------------------------
-    */
-
-    /**
-     * Scope for PresenceBoard: User::employee()
-     */
-    public function scopeEmployee(Builder $query): void
-    {
-        $query->where('role', UserRole::EMPLOYEE);
-    }
-
-    /**
-     * Scope: User::admin()
-     */
-    public function scopeAdmin(Builder $query): void
-    {
-        $query->where('role', UserRole::ADMIN);
-    }
-
-    /*
-    |--------------------------------------------------------------------------
-    | Relationships
+    | Relationships & Scopes
     |--------------------------------------------------------------------------
     */
 
@@ -108,16 +99,30 @@ class User extends Authenticatable
     }
 
     /**
-     * Fetches the movement that is currently active.
+     * Uses 'latestOfMany' for high-performance current status lookups.
+     * Optimized for the composite index we added in the migration.
      */
     public function currentMovementRel(): HasOne
     {
         return $this->hasOne(Movement::class)
             ->where('started_at', '<=', now())
-            ->where(fn($query) => 
+            ->where(fn(Builder $query) => 
                 $query->whereNull('ended_at')
                       ->orWhere('ended_at', '>', now())
             )
             ->latestOfMany('started_at');
+    }
+
+    /**
+     * Filters for PresenceBoard.
+     */
+    public function scopeEmployee(Builder $query): void
+    {
+        $query->where('role', UserRole::EMPLOYEE);
+    }
+
+    public function scopeAdmin(Builder $query): void
+    {
+        $query->where('role', UserRole::ADMIN);
     }
 }

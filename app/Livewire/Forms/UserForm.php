@@ -17,8 +17,8 @@ class UserForm extends Form
     public string $department = '';
     public string $position = '';
     
-    // Change string to UserRole|string
-    public UserRole|string $role = 'employee'; 
+    // Default to a string value that matches your Enum case
+    public string $role = 'employee'; 
     
     public string $password = '';
 
@@ -26,49 +26,55 @@ class UserForm extends Form
     {
         $this->user = $user;
         
-        // Manually assign or ensure value is extracted
-        $this->name = $user->name;
-        $this->email = $user->email;
-        $this->employee_id = $user->employee_id;
-        $this->department = $user->department;
-        $this->position = $user->position;
+        // Fill the form properties directly from the model
+        $this->fill($user->only([
+            'name', 'email', 'employee_id', 'department', 'position'
+        ]));
         
-        // Extract the string value from the Enum
-        $this->role = $user->role instanceof UserRole ? $user->role->value : $user->role;
+        // Enums cast automatically to strings when assigned to a string property
+        $this->role = $user->role->value;
+    }
+
+    protected function rules(): array
+    {
+        return [
+            'name' => 'required|min:3',
+            'email' => [
+                'required', 
+                'email', 
+                Rule::unique('users', 'email')->ignore($this->user?->id)
+            ],
+            'employee_id' => [
+                'required', 
+                Rule::unique('users', 'employee_id')->ignore($this->user?->id)
+            ],
+            'department' => 'required',
+            'position' => 'required',
+            'role' => ['required', Rule::enum(UserRole::class)],
+            'password' => $this->user ? 'nullable|min:8' : 'required|min:8',
+        ];
     }
 
     public function store()
     {
-        $validated = $this->validate([
-            'name' => 'required|min:3',
-            'email' => 'required|email|unique:users,email',
-            'employee_id' => 'required|unique:users,employee_id',
-            'department' => 'required',
-            'position' => 'required',
-            'role' => ['required', Rule::enum(UserRole::class)],
-            'password' => 'required|min:8',
-        ]);
+        $validated = $this->validate();
 
         User::create($validated);
+        
         $this->reset();
     }
 
     public function update()
     {
-        $rules = [
-            'name' => 'required|min:3',
-            'email' => ['required', 'email', Rule::unique('users', 'email')->ignore($this->user->id)],
-            'employee_id' => ['required', Rule::unique('users', 'employee_id')->ignore($this->user->id)],
-            'department' => 'required',
-            'position' => 'required',
-            'role' => ['required', Rule::enum(UserRole::class)],
-            'password' => 'nullable|min:8',
-        ];
+        $validated = $this->validate();
 
-        $validated = $this->validate($rules);
-        if (empty($validated['password'])) unset($validated['password']);
+        // Remove password if empty (user doesn't want to change it)
+        if (empty($this->password)) {
+            unset($validated['password']);
+        }
 
         $this->user->update($validated);
+        
         $this->reset();
     }
 }

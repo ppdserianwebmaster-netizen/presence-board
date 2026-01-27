@@ -8,16 +8,21 @@ use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
 use Maatwebsite\Excel\Concerns\{ToCollection, WithHeadingRow, SkipsEmptyRows};
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
 
+/**
+ * UsersImport - Optimized for Laravel 12 & PHP 8.4
+ * Handles bulk employee onboarding with automatic ID and Email generation.
+ */
 class UsersImport implements ToCollection, WithHeadingRow, SkipsEmptyRows
 {
     private int $employeeIdCounter;
-    private readonly Collection $existingEmails;
-    private readonly Collection $existingEmpIds;
+    private Collection $existingEmails;
+    private Collection $existingEmpIds;
 
     /**
      * PHP 8.4 Asymmetric Visibility
-     * The Livewire component can read stats, but only this class can modify them.
+     * Allows the Livewire UI to read results without being able to modify them.
      */
     public private(set) array $stats = [
         'total'   => 0,
@@ -30,30 +35,31 @@ class UsersImport implements ToCollection, WithHeadingRow, SkipsEmptyRows
     {
         $this->employeeIdCounter = $this->nextEmployeeIdNumber();
         
-        // Cache once for speed using select for memory efficiency
+        // Cache once for speed using selective pluck to save XAMPP memory
         $this->existingEmails = User::pluck('email');
         $this->existingEmpIds = User::pluck('employee_id');
     }
 
     public function collection(Collection $rows): void
     {
+        // Chunk processing to keep database transactions stable
         DB::transaction(function () use ($rows) {
             foreach ($rows as $index => $row) {
                 $this->stats['total']++;
                 
-                // Using PHP 8.4 null-safe and array helpers
                 $name = $row['name'] ?? null;
 
                 if (!$name) {
-                    $this->skip($index, 'Name field is required');
+                    $this->skip($index, 'The name column is empty.');
                     continue;
                 }
 
                 try {
                     $payload = $this->buildUserPayload($row->toArray());
+                    
                     User::create($payload);
 
-                    // Update local cache to prevent duplicates within the same Excel file
+                    // Update local cache to prevent duplicates within the same Excel session
                     $this->existingEmails->push($payload['email']);
                     $this->existingEmpIds->push($payload['employee_id']);
 
@@ -73,19 +79,20 @@ class UsersImport implements ToCollection, WithHeadingRow, SkipsEmptyRows
             'position'          => $this->formatText($row['position'] ?? null),
             'email'             => $this->generateUniqueEmail($row['name']),
             'employee_id'       => $this->generateUniqueEmployeeId(),
-            'password'          => 'password', // Handled by Model cast
+            'password'          => 'password', // Assumes 'hashed' cast in User Model
             'role'              => UserRole::EMPLOYEE,
             'email_verified_at' => now(),
         ];
     }
 
     /* -----------------------------------------------------------------
-    |  Formatting Helpers
+    |  Formatting & Logic Helpers
     | -----------------------------------------------------------------
     */
 
     private function formatName(string $name): string
     {
+        // PHP 8.4 String fluent interface
         return Str::of($name)->trim()->title()->value();
     }
 
@@ -94,10 +101,15 @@ class UsersImport implements ToCollection, WithHeadingRow, SkipsEmptyRows
         if (!filled($value)) return null;
 
         $text = trim($value);
-        $acronyms = ['IT', 'HR', 'PPP', 'PPD', 'KOD', 'SISC', 'SIP'];
+        
+        /**
+         * Organization Acronyms
+         * Ensures these remain uppercase regardless of Excel input casing.
+         */
+        $acronyms = ['IT', 'HR', 'PPP', 'PPD', 'KOD', 'SISC', 'SIP', 'JPN'];
 
-        // Case-insensitive replacement for specific organizational acronyms
         foreach ($acronyms as $acronym) {
+            // Using case-insensitive regex to fix "it" to "IT", etc.
             $text = preg_replace("/\b{$acronym}\b/i", $acronym, $text);
         }
 
@@ -110,6 +122,7 @@ class UsersImport implements ToCollection, WithHeadingRow, SkipsEmptyRows
         $email = "{$base}@company.com";
         $count = 1;
 
+        // Efficient loop to check local collection cache
         while ($this->existingEmails->contains($email)) {
             $email = "{$base}{$count}@company.com";
             $count++;
@@ -129,6 +142,7 @@ class UsersImport implements ToCollection, WithHeadingRow, SkipsEmptyRows
 
     private function nextEmployeeIdNumber(): int
     {
+        // Find the highest numeric value at the end of the EMP string
         $last = User::where('employee_id', 'LIKE', 'EMP%')
             ->orderByRaw('LENGTH(employee_id) DESC')
             ->orderByDesc('employee_id')
@@ -139,8 +153,8 @@ class UsersImport implements ToCollection, WithHeadingRow, SkipsEmptyRows
 
     private function skip(int $index, string $reason): void
     {
-        // Internal mutation of public private(set) property
         $this->stats['skipped']++;
+        // Index + 2 accounts for 0-based array and Excel heading row
         $this->stats['errors'][] = "Row " . ($index + 2) . ": {$reason}";
     }
 }

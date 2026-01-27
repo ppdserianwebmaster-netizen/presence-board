@@ -1,11 +1,10 @@
 <?php
-// app\Enums\MovementType.php
 
 namespace App\Enums;
 
 /**
  * MovementType Enum
- * Defines the classification of an employee's status.
+ * Centralized classification for employee status with UI metadata.
  */
 enum MovementType: string
 {
@@ -17,7 +16,6 @@ enum MovementType: string
 
     /**
      * Human-readable label.
-     * Usage in Blade: {{ $movement->type->label() }}
      */
     public function label(): string
     {
@@ -31,8 +29,8 @@ enum MovementType: string
     }
 
     /**
-     * Tailwind CSS color.
-     * Usage in Blade: <span class="text-{{ $movement->type->color() }}-600">
+     * Tailwind CSS Color Palette.
+     * Refactor: Return the full class or a specific intensity for consistency.
      */
     public function color(): string
     {
@@ -46,7 +44,7 @@ enum MovementType: string
     }
 
     /**
-     * FontAwesome/Heroicon icon name.
+     * Heroicon names (compatible with Blade UI Kit or Flux).
      */
     public function icon(): string
     {
@@ -60,12 +58,14 @@ enum MovementType: string
     }
 
     /**
-     * Static helper for Livewire dropdowns.
+     * Helper for Livewire Select Select options.
+     * Refactor: Uses array_column for better performance over collect().
      */
     public static function options(): array
     {
-        return collect(self::cases())->mapWithKeys(fn ($case) => [
-            $case->value => $case->label()
-        ])->toArray();
+        return array_combine(
+            array_column(self::cases(), 'value'),
+            array_map(fn($case) => $case->label(), self::cases())
+        );
     }
 }

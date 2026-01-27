@@ -4,62 +4,101 @@ namespace App\Livewire\User;
 
 use App\Models\Movement;
 use App\Enums\MovementType;
+use App\Livewire\Forms\MovementForm;
 use Livewire\Component;
 use Livewire\WithPagination;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
+use Illuminate\View\View;
 
+/**
+ * EmployeeDashboard Component
+ * Allows employees to track their own out-of-office movements.
+ */
 class EmployeeDashboard extends Component
 {
-    use WithPagination;
+    use WithPagination, AuthorizesRequests;
 
-    // Form Fields
-    public $type = '';
-    public $started_at;
-    public $ended_at;
-    public $remark;
+    /**
+     * Reusable Form Object for Movement logic.
+     */
+    public MovementForm $form;
 
+    /**
+     * Search term for filtering history.
+     */
+    public string $search = '';
+
+    /**
+     * UI State for the modal.
+     */
     public bool $showingModal = false;
 
-    public function openMovementModal()
+    /**
+     * Reset pagination when searching.
+     */
+    public function updatedSearch(): void
     {
-        $this->reset(['type', 'started_at', 'ended_at', 'remark']);
-        $this->started_at = now()->format('Y-m-d\TH:i');
+        $this->resetPage();
+    }
+
+    /**
+     * Prepare the form for a new entry.
+     */
+    public function openMovementModal(): void
+    {
+        $this->form->reset();
+        
+        // Contextual defaults for the current user
+        $this->form->user_id = Auth::id();
+        $this->form->started_at = now()->format('Y-m-d\TH:i');
+        
         $this->showingModal = true;
     }
 
-    public function submitMovement()
+    /**
+     * Execute movement log submission.
+     */
+    public function submitMovement(): void
     {
-        $this->validate([
-            'type' => 'required',
-            'started_at' => 'required|date',
-            'ended_at' => 'nullable|date|after_or_equal:started_at',
-            'remark' => 'nullable|string|max:255',
-        ]);
-
-        Auth::user()->movements()->create([
-            'type' => $this->type,
-            'started_at' => $this->started_at,
-            'ended_at' => $this->ended_at,
-            'remark' => $this->remark,
-        ]);
+        // Enforce ownership: ensure user_id is always the logged-in user
+        $this->form->user_id = Auth::id();
+        
+        $this->form->store();
 
         $this->showingModal = false;
-        $this->dispatch('notify', message: 'Record added successfully.');
+        $this->dispatch('notify', message: 'Movement record added successfully.');
     }
 
-    public function deleteMovement(Movement $movement)
+    /**
+     * Remove a movement record with strict ownership check.
+     */
+    public function deleteMovement(Movement $movement): void
     {
-        if ($movement->user_id === Auth::id()) {
-            $movement->delete();
-            $this->dispatch('notify', message: 'Record removed.');
+        // Security: Prevent users from deleting others' records via ID tampering
+        if ($movement->user_id !== Auth::id()) {
+            abort(403, 'Unauthorized action.');
         }
+
+        $movement->delete();
+        $this->dispatch('notify', message: 'Record removed.');
     }
 
-    public function render()
+    /**
+     * Render the employee personal movement view.
+     */
+    public function render(): View
     {
+        $query = Auth::user()->movements();
+
+        // Optional Search Filtering
+        if ($this->search) {
+            $query->where('remark', 'like', '%' . $this->search . '%');
+        }
+
         return view('livewire.user.employee-dashboard', [
-            'history' => Auth::user()->movements()->latest('started_at')->paginate(10),
+            'history' => $query->latest('started_at')->paginate(10),
             'types' => MovementType::cases(),
-        ]);
+        ])->layout('components.layouts.app');
     }
 }

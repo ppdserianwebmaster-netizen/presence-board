@@ -5,49 +5,58 @@ use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration {
+    /**
+     * Run the migrations.
+     * Note: Using PHP 8.4 property hooks in Models later will 
+     * complement these column definitions perfectly.
+     */
     public function up(): void
     {
         Schema::create('users', function (Blueprint $table) {
+            // Identity
             $table->id();
             
-            // Auth & Identity
+            // Auth & Personal Info
             $table->string('name');
             $table->string('email')->unique();
             $table->timestamp('email_verified_at')->nullable();
             $table->string('password');
             $table->rememberToken();
 
-            // Employee Metadata (Modernized)
-            // Using ulid() can be better for distributed systems, 
-            // but string is fine if you have a specific format like 'EMP-XXXX'
-            $table->string('employee_id')->unique();
-            $table->string('department')->nullable();
+            // Employee Metadata
+            // Refactor: Added 'after' logic concept. In PHP 8.4, we can use 
+            // asymmetric visibility (public readonly) for employee_id in the Model.
+            $table->string('employee_id')->unique()->comment('Company specific ID e.g. EMP-2026-001');
+            $table->string('department')->nullable()->index(); // Added index for individual filtering
             $table->string('position')->nullable();
 
-            // Role Management (Optimized for PHP 8.4 Backed Enums)
-            // Using a string for the enum name is standard for Laravel
-            $table->string('role')->default('employee');
+            // Role Management
+            // Refactor: Defaulting to a string that maps to a PHP 8.4 Backed Enum
+            $table->string('role')->default('employee')->index();
 
             // Assets & State
             $table->string('profile_photo_path', 2048)->nullable();
+            $table->boolean('is_active')->default(true)->index(); // Added to help Livewire filters
+            
             $table->timestamps();
             $table->softDeletes(); 
 
-            // Composite or Multi-column Indexes (Performance Refactor)
-            // Grouping these makes lookups for HR dashboards much faster
-            $table->index(['department', 'role', 'position'], 'hr_lookup_index');
+            // Composite Performance Index
+            // Optimal for: User::where('department', 'IT')->where('role', 'admin')->get();
+            $table->index(['department', 'role', 'position'], 'idx_hr_search_criteria');
         });
 
-        // Password Reset Tokens (Standard Laravel 12)
+        // Password Reset Tokens
         Schema::create('password_reset_tokens', function (Blueprint $table) {
             $table->string('email')->primary();
             $table->string('token');
             $table->timestamp('created_at')->nullable();
         });
 
-        // Sessions (Standard Laravel 12)
+        // Sessions
         Schema::create('sessions', function (Blueprint $table) {
             $table->string('id')->primary();
+            // Refactor: cascadeOnDelete ensures session cleanup when user is hard-deleted
             $table->foreignId('user_id')->nullable()->index()->constrained()->cascadeOnDelete();
             $table->string('ip_address', 45)->nullable();
             $table->text('user_agent')->nullable();

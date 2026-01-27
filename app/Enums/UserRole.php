@@ -1,10 +1,10 @@
 <?php
-// app\Enums\UserRole.php
 
 namespace App\Enums;
 
 /**
  * UserRole Enum
+ * Defines authorization levels and UI presentation for users.
  */
 enum UserRole: string
 {
@@ -13,7 +13,7 @@ enum UserRole: string
 
     /**
      * Get the human-readable label.
-     * Usage in Blade: $user->role->label()
+     * Usage: $user->role->label()
      */
     public function label(): string
     {
@@ -24,8 +24,8 @@ enum UserRole: string
     }
 
     /**
-     * Get the CSS color.
-     * Usage in Blade: $user->role->color()
+     * Get the Tailwind CSS color base.
+     * Usage: <span class="bg-{{ $user->role->color() }}-100 text-{{ $user->role->color() }}-700">
      */
     public function color(): string
     {
@@ -35,10 +35,15 @@ enum UserRole: string
         };
     }
 
+    /**
+     * Static helper for Livewire/Flux dropdowns.
+     * Optimized for PHP 8.4 using native array functions.
+     */
     public static function options(): array
     {
-        return collect(self::cases())->mapWithKeys(fn ($case) => [
-            $case->value => $case->label()
-        ])->toArray();
+        return array_combine(
+            array_column(self::cases(), 'value'),
+            array_map(fn($case) => $case->label(), self::cases())
+        );
     }
 }
