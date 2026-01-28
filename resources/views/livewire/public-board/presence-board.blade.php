@@ -5,8 +5,8 @@
     <header class="h-[14%] border-b-2 border-slate-900 flex items-center justify-between px-8 mb-4 bg-black">
         <div class="flex items-center gap-10">
             <div class="shrink-0">
-                @if(file_exists(public_path('img/logo.png')))
-                    <img src="{{ asset('img/logo.png') }}" alt="Logo" class="h-20 w-auto object-contain brightness-110">
+                @if(file_exists(public_path('img/logo-white.png')))
+                    <img src="{{ asset('img/logo-white.png') }}" alt="Logo" class="h-20 w-auto object-contain brightness-110">
                 @else
                     <div class="w-16 h-16 border-2 border-blue-600 flex items-center justify-center">
                         <i data-lucide="building-2" class="w-10 h-10 text-blue-600"></i>
@@ -50,7 +50,7 @@
                             {{-- Profile Photo --}}
                             <div class="shrink-0 border border-slate-800 p-1 bg-black">
                                 <img src="{{ $user->profile_photo_url }}" 
-                                     class="w-24 h-24 object-cover grayscale"
+                                     class="w-24 h-24 object-cover"
                                      loading="lazy">
                             </div>
 
