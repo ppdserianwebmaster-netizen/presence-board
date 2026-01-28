@@ -99,7 +99,9 @@ class Movement extends Model
 
     public function user(): BelongsTo
     {
-        return $this->belongsTo(User::class);
+        // Adding withTrashed() here ensures the relationship 
+        // always loads the user even if they are soft-deleted.
+        return $this->belongsTo(User::class)->withTrashed();
     }
 
     /*

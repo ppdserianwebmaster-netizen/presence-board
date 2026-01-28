@@ -37,8 +37,8 @@ enum MovementType: string
         return match($this) {
             self::MEETING => 'blue',
             self::COURSE  => 'indigo',
-            self::TRAVEL  => 'purple',
-            self::LEAVE   => 'red',
+            self::TRAVEL  => 'orange',
+            self::LEAVE   => 'rose',
             self::OTHER   => 'slate',
         };
     }

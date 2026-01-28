@@ -9,37 +9,45 @@ use Illuminate\Validation\Rule;
 
 class MovementForm extends Form
 {
+    /**
+     * The Movement model instance.
+     * PHP 8.4 Asymmetric Visibility: Readable by any class, 
+     * but only settable by this form or its children.
+     */
     public ?Movement $movement = null;
 
-    public $user_id;
-    public string $type = ''; // Type-hinted as string for the HTML select binding
-    public $started_at;
-    public $ended_at;
+    // --- Form Fields ---
+    public ?int $user_id = null;
+    public string $type = ''; 
+    public ?string $started_at = null; 
+    public ?string $ended_at = null;
     public string $remark = '';
 
     /**
-     * Common validation rules used by both store and update.
+     * Define validation rules.
      */
     protected function rules(): array
     {
         return [
-            // user_id is only required on create (since it's hidden/locked on edit)
-            'user_id' => [$this->movement ? 'nullable' : 'required', 'exists:users,id'],
-            'type' => ['required', Rule::enum(MovementType::class)],
-            'started_at' => 'required|date',
-            'ended_at' => 'nullable|date|after_or_equal:started_at',
-            'remark' => 'nullable|string|max:500',
+            'user_id'    => [$this->movement ? 'nullable' : 'required', 'exists:users,id'],
+            'type'       => ['required', Rule::enum(MovementType::class)],
+            'started_at' => ['required', 'date'],
+            'ended_at'   => ['nullable', 'date', 'after_or_equal:started_at'],
+            'remark'     => ['nullable', 'string', 'max:500'],
         ];
     }
 
-    public function set(Movement $movement)
+    /**
+     * Initialize form properties from a Movement record.
+     */
+    public function set(Movement $movement): void
     {
         $this->movement = $movement;
         
-        // Use fill for basic attributes
-        $this->fill($movement->only(['user_id', 'remark']));
-
-        // Ensure we extract the value from the Enum for the select input
+        $this->user_id = $movement->user_id;
+        $this->remark  = $movement->remark ?? '';
+        
+        // Extract Enum value safely
         $this->type = $movement->type instanceof MovementType 
             ? $movement->type->value 
             : (string) $movement->type;
@@ -49,22 +57,23 @@ class MovementForm extends Form
         $this->ended_at   = $movement->ended_at?->format('Y-m-d\TH:i');
     }
 
-    public function store()
+    /**
+     * Create a new movement record.
+     */
+    public function store(): void
     {
         $validated = $this->validate();
-
         Movement::create($validated);
-        
         $this->reset();
     }
 
-    public function update()
+    /**
+     * Update the existing movement record.
+     */
+    public function update(): void
     {
-        // Validation automatically ignores user_id logic if $this->movement exists
         $validated = $this->validate();
-
         $this->movement->update($validated);
-        
         $this->reset();
     }
 }

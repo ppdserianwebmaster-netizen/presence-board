@@ -78,7 +78,7 @@ class PresenceBoard extends Component
 
         if (!$movement) {
             return [
-                'statusColor' => '#10b981', // Tailwind green-500
+                'statusColor' => '#10b981', // emerald-500 (Clean Green)
                 'badgeLabel'  => 'PRESENT',
                 'typeLabel'   => 'In Office',
                 'iconName'    => 'check-circle'
@@ -90,28 +90,28 @@ class PresenceBoard extends Component
         // PHP 8.4 match expression is perfect here
         return match(true) {
             $end === null => [
-                'statusColor' => '#8b5cf6', // Tailwind violet-500
+                'statusColor' => '#6366f1', // indigo-500 (Professional/Deep Blue)
                 'badgeLabel'  => 'OUT',
                 'typeLabel'   => $movement->type->label(),
                 'iconName'    => $movement->type->icon()
             ],
             $end->isToday() => [
-                'statusColor' => '#f59e0b', // Tailwind amber-500
+                'statusColor' => '#f59e0b', // amber-500 (Attention/Temporary)
                 'badgeLabel'  => 'BACK TODAY',
                 'typeLabel'   => $movement->type->label(),
                 'iconName'    => 'clock'
             ],
             $end->isTomorrow() => [
-                'statusColor' => '#0ea5e9', // Tailwind sky-500
+                'statusColor' => '#0ea5e9', // sky-500 (Future/Informational)
                 'badgeLabel'  => 'TOMORROW',
                 'typeLabel'   => $movement->type->label(),
                 'iconName'    => 'calendar'
             ],
             default => [
-                'statusColor' => '#f43f5e', // Tailwind rose-500
+                'statusColor' => '#ef4444', // red-500 (Clear Absence)
                 'badgeLabel'  => 'AWAY',
                 'typeLabel'   => $movement->type->label(),
-                'iconName'    => 'plane'
+                'iconName'    => 'plane-departure' // Slightly more descriptive
             ]
         };
     }

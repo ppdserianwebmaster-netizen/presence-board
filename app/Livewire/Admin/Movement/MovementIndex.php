@@ -76,17 +76,22 @@ class MovementIndex extends Component
     {
         return view('livewire.admin.movement.movement-index', [
             'movements' => Movement::query()
-                ->with('user') // Eager load user to avoid N+1 query
+                // 1. Eager load user including those that are soft-deleted
+                ->with(['user' => fn($q) => $q->withTrashed()]) 
                 ->when($this->search, function($query) {
+                    // 2. Allow searching through deleted users too
                     $query->whereHas('user', function($q) {
-                        $q->where('name', 'like', "%{$this->search}%")
-                          ->orWhere('employee_id', 'like', "%{$this->search}%");
+                        $q->withTrashed() 
+                        ->where(function($inner) {
+                            $inner->where('name', 'like', "%{$this->search}%")
+                                    ->orWhere('employee_id', 'like', "%{$this->search}%");
+                        });
                     });
                 })
                 ->latest('started_at')
                 ->paginate(15),
             
-            // Only fetch active users for the dropdown to keep the modal clean
+            // Droplist should stay clean (only active users for new logs)
             'users' => User::orderBy('name')->select('id', 'name', 'employee_id')->get(),
         ]);
     }
