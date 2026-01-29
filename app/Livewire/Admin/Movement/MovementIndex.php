@@ -7,20 +7,36 @@ use App\Models\Movement;
 use App\Livewire\Forms\MovementForm;
 use Livewire\Component;
 use Livewire\WithPagination;
-use Livewire\Attributes\Layout;
+use Livewire\Attributes\{Layout, Url, Computed};
+use Illuminate\Support\Collection;
+use Maatwebsite\Excel\Facades\Excel;
+use App\Exports\MovementsExport;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 class MovementIndex extends Component
 {
     use WithPagination;
 
     public MovementForm $form;
-    
-    // UI State
+
+    #[Url(history: true)]
     public string $search = '';
+
+    #[Url]
+    public string $selectedMonth = '';
+
     public bool $showingModal = false;
 
     /**
-     * Reset pagination when search query changes
+     * Initialize defaults.
+     */
+    public function mount(): void
+    {
+        $this->selectedMonth = $this->selectedMonth ?: now()->format('Y-m');
+    }
+
+    /**
+     * Reset pagination when search query changes.
      */
     public function updatedSearch(): void 
     { 
@@ -28,47 +44,51 @@ class MovementIndex extends Component
     }
 
     /**
-     * Prepare form for a new movement record
+     * Using #[Computed] caches the user list for the duration of a single request,
+     * which is more efficient for Blade rendering.
      */
+    #[Computed]
+    public function users(): Collection
+    {
+        return User::query()
+            ->select(['id', 'name', 'employee_id'])
+            ->orderBy('name')
+            ->get();
+    }
+
     public function create(): void
     {
         $this->form->reset();
-        
-        // Initialize default timestamp for the datetime-local input
+        // PHP 8.4 property hooks can also be used inside Form Objects if needed
         $this->form->started_at = now()->format('Y-m-d\TH:i');
-        
         $this->showingModal = true;
     }
 
-    /**
-     * Load existing movement into the form object
-     */
     public function edit(Movement $movement): void
     {
         $this->form->set($movement);
         $this->showingModal = true;
     }
 
-    /**
-     * Handle store or update via the Form Object
-     */
     public function save(): void
     {
-        // Validation and Execution handled by UserForm object
+        // Using the null-safe operator or explicit check for clarity
         $this->form->movement ? $this->form->update() : $this->form->store();
         
         $this->showingModal = false;
-        
-        $this->dispatch('notify', message: 'Movement record saved successfully.');
+        $this->dispatch('notify', message: 'Movement record saved.');
     }
 
-    /**
-     * Remove a movement record
-     */
     public function delete(Movement $movement): void
     {
         $movement->delete();
-        $this->dispatch('notify', message: 'Movement record deleted.');
+        $this->dispatch('notify', message: 'Movement record removed.');
+    }
+
+    public function exportExcel(): BinaryFileResponse
+    {
+        $filename = "movements-{$this->selectedMonth}.xlsx";
+        return Excel::download(new MovementsExport($this->selectedMonth), $filename);
     }
 
     #[Layout('components.layouts.app')]
