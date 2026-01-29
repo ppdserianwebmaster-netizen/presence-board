@@ -5,6 +5,7 @@ namespace App\Livewire\Settings;
 use App\Models\User;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Session;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 use Livewire\Component;
 use Livewire\WithFileUploads; // Add this for photo uploads
@@ -65,7 +66,7 @@ class Profile extends Component
     public string $employee_id = '';
     public string $department = '';
     public string $position = '';
-    public $photo; // For new uploads
+    public $photo;
 
     public function mount(): void
     {
@@ -91,6 +92,10 @@ class Profile extends Component
         ]);
 
         if ($this->photo) {
+            if ($user->profile_photo_path) {
+                Storage::disk('public')->delete($user->profile_photo_path);
+            }
+            
             $validated['profile_photo_path'] = $this->photo->store('profile-photos', 'public');
         }
 
