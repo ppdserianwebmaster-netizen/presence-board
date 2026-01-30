@@ -70,12 +70,8 @@ return [
             'database' => env('DB_DATABASE'),
             'username' => env('DB_USERNAME'),
             'password' => env('DB_PASSWORD'),
-            'options' => extension_loaded('pdo_mysql') ? array_filter([
-                // This allows you to turn verification off if Aiven gives you a "Handshake" error
-                PDO::MYSQL_ATTR_SSL_VERIFY_SERVER_CERT => env('DB_SSL_VERIFY', false),
-                
-                // This points to your certificate file in storage/certs/ca.pem
-                PDO::MYSQL_ATTR_SSL_CA => env('DB_SSL_CA', storage_path('certs/ca.pem')),
+            'options' => extension_loaded('pdo_mysql') ? array_filter([  
+                PDO::MYSQL_ATTR_SSL_MODE => 'DISABLED',  
             ]) : [],
         ],
 
