@@ -6,6 +6,7 @@ use App\Models\User;
 use App\Enums\UserRole;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
+use Illuminate\Support\Facades\URL; //
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -30,8 +31,10 @@ class AppServiceProvider extends ServiceProvider
             return $user->role === UserRole::ADMIN;
         });
 
+        //
         if (app()->environment('production')) {
             URL::forceScheme('https');
         }
+        //
     }
 }
