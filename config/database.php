@@ -71,9 +71,13 @@ return [
             'username' => env('DB_USERNAME'),
             'password' => env('DB_PASSWORD'),
             'options' => extension_loaded('pdo_mysql') ? array_filter([
-                PDO::MYSQL_ATTR_SSL_CA => storage_path('app/certs/ca.pem'),
-                PDO::MYSQL_ATTR_SSL_VERIFY_SERVER_CERT => true,
-            ]) : [],  
+                // Use the new PHP 8.4+ class if available, else fall back to the old constant
+                (class_exists(\Pdo\Mysql::class) ? \Pdo\Mysql::ATTR_SSL_CA : \PDO::MYSQL_ATTR_SSL_CA) 
+                    => storage_path('app/certs/ca.pem'),
+        
+                (class_exists(\Pdo\Mysql::class) ? \Pdo\Mysql::ATTR_SSL_VERIFY_SERVER_CERT : \PDO::MYSQL_ATTR_SSL_VERIFY_SERVER_CERT) 
+                    => true,
+            ]) : [], 
         ],
 
         'mariadb' => [
