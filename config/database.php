@@ -70,8 +70,9 @@ return [
             'database' => env('DB_DATABASE'),
             'username' => env('DB_USERNAME'),
             'password' => env('DB_PASSWORD'),
-            'options' => extension_loaded('pdo_mysql') ? array_filter([  
-                'ssl_mode' => 'DISABLED',  
+            'options' => extension_loaded('pdo_mysql') ? array_filter([
+                PDO::MYSQL_ATTR_SSL_CA => storage_path('app/certs/ca.pem'),
+                PDO::MYSQL_ATTR_SSL_VERIFY_SERVER_CERT => true,
             ]) : [],  
         ],
 
