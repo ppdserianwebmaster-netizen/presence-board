@@ -78,7 +78,7 @@ return [
             'engine' => null,
             'options' => (extension_loaded('pdo_mysql') && env('DB_SSL_MODE') === 'required') ? [
                 (class_exists(\Pdo\Mysql::class) ? \Pdo\Mysql::ATTR_SSL_CA : \PDO::MYSQL_ATTR_SSL_CA) 
-                    => storage_path('app/certs/ca.pem'),
+                    => resource_path('certs/ca.pem'), // Use resource_path instead of storage_path
                 (class_exists(\Pdo\Mysql::class) ? \Pdo\Mysql::ATTR_SSL_VERIFY_SERVER_CERT : \PDO::MYSQL_ATTR_SSL_VERIFY_SERVER_CERT) 
                     => true,
             ] : [],
