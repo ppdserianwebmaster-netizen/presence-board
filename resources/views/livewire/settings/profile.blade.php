@@ -51,18 +51,30 @@
             {{-- Photo Section --}}
             <div class="flex items-center gap-6 p-4 bg-neutral-50 dark:bg-neutral-900/50 rounded-2xl border border-neutral-100 dark:border-neutral-800">
                 <div class="relative group">
-                    <img src="{{ $photo ? $photo->temporaryUrl() : auth()->user()->profile_photo_url }}" 
-                         class="h-20 w-20 rounded-2xl object-cover border-2 border-white dark:border-neutral-800 shadow-sm">
+                    {{-- FIX: Change $form->photo to $photo --}}
+                    <img src="{{ $photo ? $photo->temporaryUrl() : (auth()->user()->profile_photo_path ? Storage::url(auth()->user()->profile_photo_path) : 'https://ui-avatars.com/api/?name='.urlencode(auth()->user()->name)) }}" 
+                        class="h-20 w-20 rounded-2xl object-cover border-2 border-white dark:border-neutral-800 shadow-sm">
                     
                     <label class="absolute inset-0 flex items-center justify-center bg-black/40 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer">
                         <flux:icon.camera class="text-white size-6" />
-                        <input type="file" wire:model="photo" class="hidden">
+                        {{-- FIX: Change wire:model="form.photo" to wire:model="photo" --}}
+                        <input type="file" wire:model="photo" class="hidden" accept="image/*">
                     </label>
                 </div>
+
                 <div>
                     <flux:heading size="sm">{{ __('Profile Photo') }}</flux:heading>
                     <flux:text size="sm">{{ __('Click the image to upload a new avatar.') }}</flux:text>
-                    <div wire:loading wire:target="photo" class="text-[10px] font-bold text-indigo-500 uppercase mt-1">Uploading...</div>
+                    
+                    {{-- FIX: Change wire:target="form.photo" to wire:target="photo" --}}
+                    <div wire:loading wire:target="photo" class="text-[10px] font-bold text-indigo-500 uppercase mt-1 animate-pulse">
+                        {{ __('Uploading...') }}
+                    </div>
+
+                    {{-- FIX: Change @error('form.photo') to @error('photo') --}}
+                    @error('photo')
+                        <div class="text-[10px] font-bold text-rose-500 uppercase mt-1">{{ $message }}</div>
+                    @enderror
                 </div>
             </div>
 

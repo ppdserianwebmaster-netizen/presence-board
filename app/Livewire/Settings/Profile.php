@@ -8,7 +8,7 @@ use Illuminate\Support\Facades\Session;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 use Livewire\Component;
-use Livewire\WithFileUploads; // Add this for photo uploads
+use Livewire\WithFileUploads;
 use Livewire\Attributes\Layout;
 
 class Profile extends Component
@@ -92,11 +92,24 @@ class Profile extends Component
         ]);
 
         if ($this->photo) {
+            // 1. Delete the old photo if it exists
             if ($user->profile_photo_path) {
                 Storage::disk('public')->delete($user->profile_photo_path);
             }
             
-            $validated['profile_photo_path'] = $this->photo->store('profile-photos', 'public');
+            // 2. Process the image (Resize to 300x300 and compress)
+            $img = \Intervention\Image\Laravel\Facades\Image::read($this->photo->getRealPath())
+                ->cover(300, 300) // This crops it to a perfect square
+                ->toWebp(70);     // Converts to WebP at 70% quality (Best for Web)
+
+            // 3. Generate a clean filename
+            $filename = 'profile-photos/' . $user->id . '-' . time() . '.webp';
+
+            // 4. Store the processed image data
+            Storage::disk('public')->put($filename, $img->toString());
+
+            // 5. Save the path to the database
+            $validated['profile_photo_path'] = $filename;
         }
 
         $user->fill($validated);

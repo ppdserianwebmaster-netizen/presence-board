@@ -7,6 +7,7 @@ use Livewire\Form;
 use Illuminate\Validation\Rule;
 use App\Enums\UserRole;
 use Illuminate\Support\Facades\Storage;
+use Intervention\Image\Laravel\Facades\Image;
 
 class UserForm extends Form
 {
@@ -72,7 +73,8 @@ class UserForm extends Form
         $validated = $this->validate();
 
         if ($this->photo) {
-            $validated['profile_photo_path'] = $this->photo->store('profile-photos', 'public');
+            // Process and resize the image before storing
+            $validated['profile_photo_path'] = $this->processImage($this->photo);
         }
 
         User::create($validated);
@@ -91,7 +93,7 @@ class UserForm extends Form
             if ($this->user->profile_photo_path) {
                 Storage::disk('public')->delete($this->user->profile_photo_path);
             }
-            $validated['profile_photo_path'] = $this->photo->store('profile-photos', 'public');
+            $validated['profile_photo_path'] = $this->processImage($this->photo);
         }
 
         if (empty($this->password)) {
@@ -99,6 +101,26 @@ class UserForm extends Form
         }
 
         $this->user->update($validated);
-        $this->reset();
+    }
+
+    /**
+     * Helper to process, resize, and store the image.
+     */
+    protected function processImage($uploadedFile): string
+    {
+        // 1. Read the image from the temporary path
+        $image = Image::read($uploadedFile->getRealPath());
+
+        // 2. Resize to 300x300 (Cover crops it perfectly)
+        $image->cover(300, 300);
+
+        // 3. Generate a unique filename with .webp extension for better compression
+        $filename = 'profile-photos/' . bin2hex(random_bytes(10)) . '.webp';
+
+        // 4. Save to the public disk
+        // We use toString() to get the binary data for Storage::put
+        Storage::disk('public')->put($filename, $image->toWebp(70)->toString());
+
+        return $filename;
     }
 }
