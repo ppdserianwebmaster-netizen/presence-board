@@ -78,9 +78,9 @@ return [
             'engine' => null,
             'options' => (extension_loaded('pdo_mysql') && env('DB_SSL_MODE') === 'required') ? [
                 (class_exists(\Pdo\Mysql::class) ? \Pdo\Mysql::ATTR_SSL_CA : \PDO::MYSQL_ATTR_SSL_CA) 
-                    => storage_path('app/certs/ca.pem'),
+                    => storage_path('app/certs/ca.pem'), 
                 (class_exists(\Pdo\Mysql::class) ? \Pdo\Mysql::ATTR_SSL_VERIFY_SERVER_CERT : \PDO::MYSQL_ATTR_SSL_VERIFY_SERVER_CERT) 
-                    => true,
+                    => filter_var(env('MYSQL_ATTR_SSL_VERIFY_SERVER_CERT', true), FILTER_VALIDATE_BOOLEAN),
             ] : [],
         ],
 
