@@ -21,4 +21,6 @@ yarn-error.log
 /.nova
 /.vscode
 /.zed
-!/storage/app/certs/ca.pem
+
+!storage/app/certs/
+!storage/app/certs/ca.pem
