@@ -5,6 +5,17 @@
 /public/storage
 /storage/*.key
 /storage/pail
+/storage/app/*
+/storage/app/public/*
+/storage/framework/cache/*
+/storage/framework/sessions/*
+/storage/framework/testing/*
+/storage/framework/views/*
+/storage/logs/*
+
+# Allow the certs directory
+!/storage/app/certs/
+!/storage/app/certs/.gitignore
 /vendor
 .env
 .env.backup
@@ -21,6 +32,3 @@ yarn-error.log
 /.nova
 /.vscode
 /.zed
-
-!storage/app/certs/
-!storage/app/certs/ca.pem
