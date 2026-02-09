@@ -1,3 +1,6 @@
+# Ignore all files in this directory
 *
-!ca.pem
+
+# Except this .gitignore and .gitkeep
 !.gitignore
+!.gitkeep
